@@ -34,7 +34,7 @@ export function GotBoard({
 
   return (
     <div className="w-full max-w-3xl mx-auto">
-      <div className="grid grid-cols-10 gap-0 bg-gray-300 dark:bg-gray-600 p-0 rounded-lg border border-gray-400 dark:border-gray-700">
+      <div className="grid grid-cols-10 gap-0 bg-white dark:bg-zinc-900 p-0 rounded-lg border border-gray-300 dark:border-gray-700">
         {rows.flatMap((row, rowIndex) =>
           row.map((space, colIndex) => {
             const num = space?.number ?? -1;
