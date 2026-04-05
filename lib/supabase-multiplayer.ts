@@ -43,6 +43,8 @@ export interface GameSession {
   winner_id: string | null;
   created_at: string;
   updated_at: string;
+  player_1_name?: string;
+  player_2_name?: string;
 }
 
 export interface GamePlayer {
@@ -84,12 +86,16 @@ export async function createGameSession(
         player_2_id: null,
         status: 'waiting',
       })
-      .select()
+      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
       .single();
 
     if (error) throw error;
     
-    return data as GameSession;
+    return {
+      ...(data as GameSession),
+      player_1_name: (data as any)?.player1?.player_name,
+      player_2_name: (data as any)?.player2?.player_name,
+    } as GameSession;
   } catch (error) {
     console.error('Error creating game session:', error);
     return null;
@@ -112,7 +118,7 @@ export async function joinGameSession(
     // Find session
     const { data: session, error: findError } = await supabase
       .from('game_sessions')
-      .select('*')
+      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
       .eq('session_code', sessionCode)
       .single();
 
@@ -129,12 +135,16 @@ export async function joinGameSession(
         status: 'active',
       })
       .eq('id', session.id)
-      .select()
+      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
       .single();
 
     if (updateError) throw updateError;
 
-    return data as GameSession;
+    return {
+      ...(data as GameSession),
+      player_1_name: (data as any)?.player1?.player_name,
+      player_2_name: (data as any)?.player2?.player_name,
+    } as GameSession;
   } catch (error) {
     console.error('Error joining game session:', error);
     return null;
@@ -201,12 +211,16 @@ export async function getGameSession(sessionCode: string): Promise<GameSession |
   try {
     const { data, error } = await supabase
       .from('game_sessions')
-      .select('*')
+      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
       .eq('session_code', sessionCode)
       .single();
 
     if (error) throw error;
-    return data as GameSession;
+    return {
+      ...(data as GameSession),
+      player_1_name: (data as any)?.player1?.player_name,
+      player_2_name: (data as any)?.player2?.player_name,
+    } as GameSession;
   } catch (error) {
     console.error('Error fetching game session:', error);
     return null;
@@ -286,7 +300,7 @@ export async function joinGameLobby(
     // Get the current session
     const { data: session, error: findError } = await supabase
       .from('game_sessions')
-      .select('*')
+      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
       .eq('id', sessionId)
       .single();
 
@@ -303,7 +317,7 @@ export async function joinGameLobby(
         status: 'active',
       })
       .eq('id', sessionId)
-      .select()
+      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
       .single();
 
     if (updateError) throw updateError;
@@ -314,7 +328,11 @@ export async function joinGameLobby(
       player_name: playerName,
     }).select().single();
 
-    return data as GameSession;
+    return {
+      ...(data as GameSession),
+      player_1_name: (data as any)?.player1?.player_name,
+      player_2_name: (data as any)?.player2?.player_name,
+    } as GameSession;
   } catch (error) {
     console.error('Error joining game lobby:', error);
     return null;
