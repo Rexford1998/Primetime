@@ -1,17 +1,26 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Gamepad2, Users, Bot } from "lucide-react";
+import { Gamepad2, Users, Bot, History } from "lucide-react";
 
-type ModeOption = "bot" | "local" | "create" | "join";
+type ModeOption = "bot" | "local" | "create" | "join" | "active";
 
 interface MultiplayerModeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onModeSelect: (mode: ModeOption) => void;
   gameName: string;
+  hasActiveGames?: boolean;
+  onViewActiveGames?: () => void;
 }
 
-export function MultiplayerModeDialog({ open, onOpenChange, onModeSelect, gameName }: MultiplayerModeDialogProps) {
+export function MultiplayerModeDialog({ 
+  open, 
+  onOpenChange, 
+  onModeSelect, 
+  gameName,
+  hasActiveGames = false,
+  onViewActiveGames
+}: MultiplayerModeDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -23,6 +32,25 @@ export function MultiplayerModeDialog({ open, onOpenChange, onModeSelect, gameNa
         </DialogHeader>
 
         <div className="grid gap-3">
+          {hasActiveGames && (
+            <button
+              type="button"
+              onClick={() => {
+                onViewActiveGames?.();
+                onOpenChange(false);
+              }}
+              className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800"
+            >
+              <div className="p-2 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                <History className="h-5 w-5" />
+              </div>
+              <div className="flex-1 text-left">
+                <div className="font-semibold">Resume Game</div>
+                <div className="text-sm text-muted-foreground">Continue one of your active games from any device.</div>
+              </div>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {

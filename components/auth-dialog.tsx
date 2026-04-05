@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase-multiplayer";
+import { signUp, signIn, getCurrentUser } from "@/lib/auth";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AuthDialogProps {
   open: boolean;
@@ -19,50 +20,85 @@ interface AuthDialogProps {
 }
 
 export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
+  const [mode, setMode] = useState<"signup" | "signin" | "guest">("signup");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // preload from localStorage if present
-    const storedName = localStorage.getItem("pf_player_name") || "";
-    const storedEmail = localStorage.getItem("pf_player_email") || "";
-    if (storedName) setName(storedName);
-    if (storedEmail) setEmail(storedEmail);
+    // Check if user is already authenticated
+    checkCurrentUser();
   }, []);
 
-  const handleSubmit = async () => {
-    if (!name.trim()) return;
-    const trimmedName = name.trim();
-    const trimmedEmail = email.trim();
-    localStorage.setItem("pf_player_name", trimmedName);
-    if (trimmedEmail) localStorage.setItem("pf_player_email", trimmedEmail);
+  const checkCurrentUser = async () => {
+    const user = await getCurrentUser();
+    if (user) {
+      onAuthed(user.playerName, user.email, user.id);
+      onOpenChange(false);
+    }
+  };
 
-    let userId: string | null = null;
-    if (trimmedEmail) {
-      // Try sign-in, fallback to sign-up
-      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password: trimmedEmail + "_pass",
-      });
-      if (signInData?.user) {
-        userId = signInData.user.id;
-      } else {
-        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-          email: trimmedEmail,
-          password: trimmedEmail + "_pass",
-          options: { data: { player_name: trimmedName } },
-        });
-        if (!signUpErr && signUpData.user) {
-          userId = signUpData.user.id;
-        }
-      }
-      // Upsert player profile if we have id
-      if (userId) {
-        await supabase.from('game_players').upsert({ player_id: userId, player_name: trimmedName });
-      }
+  const handleSignUp = async () => {
+    if (!email.trim() || !password.trim() || !name.trim()) {
+      setError("Please fill in all fields");
+      return;
     }
 
-    onAuthed(trimmedName, trimmedEmail, userId);
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    const result = await signUp(email, password, name);
+
+    if (result.success && result.user) {
+      localStorage.setItem("pf_player_name", result.user.playerName);
+      localStorage.setItem("pf_player_email", result.user.email);
+      onAuthed(result.user.playerName, result.user.email, result.user.id);
+      onOpenChange(false);
+    } else {
+      setError(result.error || "Failed to sign up");
+    }
+
+    setLoading(false);
+  };
+
+  const handleSignIn = async () => {
+    if (!email.trim() || !password.trim()) {
+      setError("Please enter email and password");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    const result = await signIn(email, password);
+
+    if (result.success && result.user) {
+      localStorage.setItem("pf_player_name", result.user.playerName);
+      localStorage.setItem("pf_player_email", result.user.email);
+      onAuthed(result.user.playerName, result.user.email, result.user.id);
+      onOpenChange(false);
+    } else {
+      setError(result.error || "Failed to sign in");
+    }
+
+    setLoading(false);
+  };
+
+  const handleGuestMode = async () => {
+    if (!name.trim()) {
+      setError("Please enter a display name");
+      return;
+    }
+
+    localStorage.setItem("pf_player_name", name.trim());
+    onAuthed(name.trim(), "", null);
     onOpenChange(false);
   };
 
@@ -70,34 +106,113 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Sign in to play</DialogTitle>
+          <DialogTitle>Join the Game</DialogTitle>
           <DialogDescription>
-            Set a display name (and email if you want). This will show up for your opponent.
+            Create an account, sign in, or play as a guest
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-xs font-medium">Display name</label>
-            <Input
-              value={name}
-              placeholder="Player name"
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium">Email (optional)</label>
-            <Input
-              type="email"
-              value={email}
-              placeholder="you@example.com"
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <Button className="w-full" onClick={handleSubmit} disabled={!name.trim()}>
-            Save and Continue
-          </Button>
-        </div>
+        <Tabs value={mode} onValueChange={(v) => setMode(v as any)}>
+          <TabsList className="w-full grid w-full grid-cols-3">
+            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsTrigger value="signin">Sign In</TabsTrigger>
+            <TabsTrigger value="guest">Guest</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="signup" className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Display Name</label>
+              <Input
+                value={name}
+                placeholder="Your player name"
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Email</label>
+              <Input
+                type="email"
+                value={email}
+                placeholder="you@example.com"
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Password</label>
+              <Input
+                type="password"
+                value={password}
+                placeholder="At least 6 characters"
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            <Button
+              className="w-full"
+              onClick={handleSignUp}
+              disabled={loading || !name.trim() || !email.trim() || !password.trim()}
+            >
+              {loading ? "Creating account..." : "Create Account"}
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="signin" className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Email</label>
+              <Input
+                type="email"
+                value={email}
+                placeholder="you@example.com"
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Password</label>
+              <Input
+                type="password"
+                value={password}
+                placeholder="Your password"
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            <Button
+              className="w-full"
+              onClick={handleSignIn}
+              disabled={loading || !email.trim() || !password.trim()}
+            >
+              {loading ? "Signing in..." : "Sign In"}
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="guest" className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Play as a guest without creating an account. You won&apos;t be able to resume games later.
+            </p>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Display Name</label>
+              <Input
+                value={name}
+                placeholder="Your player name"
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            <Button
+              className="w-full"
+              onClick={handleGuestMode}
+              disabled={loading || !name.trim()}
+            >
+              Play as Guest
+            </Button>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
