@@ -540,6 +540,17 @@ export function PrimeFactorGame() {
   // Sync game state across devices
   const [lastSyncedAt, setLastSyncedAt] = useState<number>(0);
 
+  const persistGameState = useCallback((reason?: string) => {
+    if (!isMultiplayer || !sessionId || !playerId) return;
+    const stateToSave: GameState = {
+      ...gameState,
+      players: gameState.players.map((p, idx) => ({ ...p, name: playerNames[idx] })),
+    } as GameState;
+    updateGameState(sessionId, playerId, stateToSave, gameState.currentPlayer).then((ok) => {
+      if (ok) setLastSyncedAt(Date.now());
+    });
+  }, [gameState, isMultiplayer, sessionId, playerId, playerNames]);
+
   useEffect(() => {
     if (!isMultiplayer || !sessionId) return;
     const channel = subscribeToGameState(sessionId, async (states) => {
@@ -560,17 +571,6 @@ export function PrimeFactorGame() {
       channel.unsubscribe();
     };
   }, [isMultiplayer, sessionId, lastSyncedAt]);
-
-  const persistGameState = useCallback((reason?: string) => {
-    if (!isMultiplayer || !sessionId || !playerId) return;
-    const stateToSave: GameState = {
-      ...gameState,
-      players: gameState.players.map((p, idx) => ({ ...p, name: playerNames[idx] })),
-    } as GameState;
-    updateGameState(sessionId, playerId, stateToSave, gameState.currentPlayer).then((ok) => {
-      if (ok) setLastSyncedAt(Date.now());
-    });
-  }, [gameState, isMultiplayer, sessionId, playerId, playerNames]);
 
   // Host: auto-start when opponent joins
   useEffect(() => {
