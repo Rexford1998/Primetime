@@ -326,10 +326,22 @@ export function subscribeToLobbies(
   gameType: 'multiplication' | 'give-or-take',
   callback: (lobbies: GameLobby[]) => void
 ) {
-  return supabase
-    .from('game_sessions')
-    .on('*', () => {
-      getAvailableLobbies(gameType).then(callback);
-    })
+  const channel = supabase.channel(`lobbies:${gameType}`);
+  
+  channel
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'game_sessions',
+        filter: `game_type=eq.${gameType}`,
+      },
+      () => {
+        getAvailableLobbies(gameType).then(callback);
+      }
+    )
     .subscribe();
+
+  return channel;
 }
