@@ -798,14 +798,13 @@ export function PrimeFactorGame() {
       
       const nextPlayer = (prev.currentPlayer + 1) % prev.players.length;
       
-      const nextPlayer = (prev.currentPlayer + 1) % prev.players.length;
       const updatedState = {
         ...prev,
         board: newBoard,
         players: newPlayers,
-        currentPlayer: nextPlayer,
+        currentPlayer: (prev.currentPlayer + 1) % prev.players.length,
         selectedDice: [],
-        message: `Claimed space ${selectedSpace.number}! ${newPlayers[nextPlayer].name}'s turn.`,
+        message: `Claimed space ${selectedSpace.number}! ${newPlayers[(prev.currentPlayer + 1) % prev.players.length].name}'s turn.`,
       };
       return updatedState;
     });
