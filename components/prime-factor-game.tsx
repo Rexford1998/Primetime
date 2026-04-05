@@ -44,7 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { createGameLobby, joinGameLobby, cancelGameLobby } from "@/lib/supabase-multiplayer";
+import { createGameLobby, joinGameLobby, cancelGameLobby, getGameSession } from "@/lib/supabase-multiplayer";
 
 const createInitialState = (targetScore: number): GameState => ({
   board: generateBoard(),
@@ -448,6 +448,28 @@ export function PrimeFactorGame() {
     setWaitingForOpponent(false);
     setShowModeSelect(true);
   }, [sessionCode]);
+
+  // Host: auto-start when opponent joins
+  useEffect(() => {
+    if (!waitingForOpponent || !sessionCode) return;
+    let cancelled = false;
+    const poll = async () => {
+      const session = await getGameSession(sessionCode);
+      if (!session || cancelled) return;
+      if (session.player_2_id) {
+        setWaitingForOpponent(false);
+        setOpponentName(session.player_2_name || "Opponent");
+        setShowSetup(true);
+        setShowModeSelect(false);
+      }
+    };
+    poll();
+    const id = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [waitingForOpponent, sessionCode]);
 
   // Handle game setup submission
   const handleGameSetupSubmit = useCallback(
