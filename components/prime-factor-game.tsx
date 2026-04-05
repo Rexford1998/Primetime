@@ -1117,6 +1117,7 @@ export function PrimeFactorGame() {
     <WaitingRoomDialog
       sessionCode={sessionCode ?? ""}
       playerName="Player 1"
+      gameType={selectedGameType}
       onCancel={() => {
         setIsMultiplayer(false);
         setWaitingForOpponent(false);
@@ -1125,6 +1126,11 @@ export function PrimeFactorGame() {
       onOpponentJoined={() => {
         setWaitingForOpponent(false);
         setShowSetup(true);
+        setShowModeSelect(false);
+      }}
+      onJoinLobby={(lobbyId, name) => handleSelectLobby(lobbyId, name)}
+      onCreateNew={() => {
+        setShowLobby(true);
         setShowModeSelect(false);
       }}
       isOpen
