@@ -54,6 +54,8 @@ export function WaitingRoomDialog({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const otherLobbies = lobbies.filter((lobby) => lobby.session_code !== sessionCode);
+
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent>
@@ -94,11 +96,11 @@ export function WaitingRoomDialog({
             <p className="text-sm font-semibold">Other open games</p>
             {loadingLobbies && <span className="text-xs text-muted-foreground">Refreshing…</span>}
           </div>
-          {lobbies.length === 0 ? (
+          {otherLobbies.length === 0 ? (
             <p className="text-xs text-muted-foreground">No other games waiting right now.</p>
           ) : (
             <div className="space-y-2 max-h-48 overflow-y-auto">
-              {lobbies.map((lobby) => (
+              {otherLobbies.map((lobby) => (
                 <button
                   key={lobby.id}
                   onClick={() => onJoinLobby(lobby.id, lobby.player_1_name)}
