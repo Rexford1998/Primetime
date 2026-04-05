@@ -58,6 +58,7 @@ export function AppHeader() {
               <Button
                 size="sm"
                 onClick={() => setShowAuth(true)}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
               >
                 Sign In / Sign Up
               </Button>
