@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { createGameLobby, joinGameLobby, cancelGameLobby, getGameSession, subscribeToSession, subscribeToGameState, updateGameState, generatePlayerId } from "@/lib/supabase-multiplayer";
+import { AuthDialog } from "./auth-dialog";
 
 const createInitialState = (targetScore: number): GameState => ({
   board: generateBoard(),
@@ -79,6 +80,7 @@ export function PrimeFactorGame() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentName, setOpponentName] = useState<string | null>(null);
   const [playerNames, setPlayerNames] = useState<[string, string]>(["Player 1", "Player 2"]);
+  const [showAuth, setShowAuth] = useState(false);
   const [showLobby, setShowLobby] = useState(false);
   const [selectedGameType, setSelectedGameType] = useState<"multiplication" | "give-or-take">("multiplication");
   const [showGameSetup, setShowGameSetup] = useState(false);
@@ -398,6 +400,11 @@ export function PrimeFactorGame() {
   }, [showSetup, gameState.phase]);
 
   const handleModeSelect = useCallback((mode: "bot" | "local" | "create" | "join") => {
+    // Force auth for multiplayer flows
+    if ((mode === "create" || mode === "join") && !playerNames[0]) {
+      setShowAuth(true);
+      return;
+    }
     if (mode === "bot") {
       setBotEnabled(true);
       setIsMultiplayer(false);
@@ -1164,6 +1171,11 @@ export function PrimeFactorGame() {
   {/* Dialogs */}
   <RulesDialog open={showRules} onOpenChange={setShowRules} />
   <MultiplicationGameTutorial open={showTutorial} onOpenChange={setShowTutorial} />
+  <AuthDialog
+    open={showAuth}
+    onOpenChange={setShowAuth}
+    onAuthed={(name) => setPlayerNames([name || "Player 1", playerNames[1]])}
+  />
   
   {/* Multiplayer Mode Selector */}
   <MultiplayerModeDialog
