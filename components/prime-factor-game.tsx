@@ -420,9 +420,11 @@ export function PrimeFactorGame() {
           setSessionCode(session.session_code);
           setIsMultiplayer(true);
           setMultiplayerMode("join");
-          setWaitingForOpponent(true);
+          setWaitingForOpponent(false);
           setOpponentName(playerName || "Opponent");
           setShowLobby(false);
+          // Move straight to setup so both players can start
+          setShowSetup(true);
         }
       } catch (error) {
         console.error("Error joining lobby:", error);
