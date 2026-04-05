@@ -44,8 +44,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { createGameLobby, joinGameLobby, cancelGameLobby, getGameSession, subscribeToSession, subscribeToGameState, updateGameState, generatePlayerId } from "@/lib/supabase-multiplayer";
+import { createGameLobby, joinGameLobby, cancelGameLobby, getGameSession, subscribeToSession, subscribeToGameState, updateGameState, generatePlayerId, sendHeartbeat, validateTurn, updateCurrentTurn } from "@/lib/supabase-multiplayer";
 import { AuthDialog } from "./auth-dialog";
+import { ActiveGamesDialog } from "./active-games-dialog";
+import { usePlayerProfile } from "@/hooks/use-player-profile";
 
 const createInitialState = (targetScore: number): GameState => ({
   board: generateBoard(),
@@ -71,6 +73,11 @@ export function PrimeFactorGame() {
   const [showModeSelect, setShowModeSelect] = useState(true);
   const [diceSkins, setDiceSkins] = useState<DiceSkin[]>(DEFAULT_SKINS);
   
+  // Authentication and session recovery
+  const { user: authUser, loading: authLoading, isAuthenticated } = usePlayerProfile();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [showActiveGames, setShowActiveGames] = useState(false);
+  
   // Multiplayer state
   const [isMultiplayer, setIsMultiplayer] = useState(false);
   const [multiplayerMode, setMultiplayerMode] = useState<"create" | "join" | "lobby" | null>(null);
@@ -85,6 +92,7 @@ export function PrimeFactorGame() {
   const [selectedGameType, setSelectedGameType] = useState<"multiplication" | "give-or-take">("multiplication");
   const [showGameSetup, setShowGameSetup] = useState(false);
   const [lobbyLoading, setLobbyLoading] = useState(false);
+  const [heartbeatInterval, setHeartbeatInterval] = useState<NodeJS.Timeout | null>(null);
   
   // Track each player's dice separately
   const [player1Dice, setPlayer1Dice] = useState<Die[]>([]);
@@ -117,6 +125,34 @@ export function PrimeFactorGame() {
     const id = generatePlayerId();
     setPlayerId(id || null);
   }, []);
+
+  // Set userId from auth user
+  useEffect(() => {
+    if (authUser?.id) {
+      setUserId(authUser.id);
+    }
+  }, [authUser]);
+
+  // Setup heartbeat for multiplayer
+  useEffect(() => {
+    if (isMultiplayer && sessionId && userId) {
+      // Send initial heartbeat
+      sendHeartbeat(userId, sessionId, true);
+
+      // Setup periodic heartbeat every 10 seconds
+      const interval = setInterval(() => {
+        sendHeartbeat(userId, sessionId, true);
+      }, 10000);
+
+      setHeartbeatInterval(interval);
+
+      return () => {
+        clearInterval(interval);
+        // Mark player as offline when leaving
+        sendHeartbeat(userId, sessionId, false);
+      };
+    }
+  }, [isMultiplayer, sessionId, userId]);
 
   // Exit confirmation dialog
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -465,6 +501,30 @@ export function PrimeFactorGame() {
   // Handle create new lobby button
   const handleCreateNewLobby = useCallback(() => {
     setShowGameSetup(true);
+  }, []);
+
+  // Handle resuming a game from active games list
+  const handleResumeGame = useCallback(async (resumeSessionId: string) => {
+    try {
+      const session = await getGameSession(resumeSessionId);
+      if (session) {
+        setSessionCode(session.session_code);
+        setSessionId(session.id);
+        setIsMultiplayer(true);
+        setMultiplayerMode("join");
+        setOpponentName(session.player_2_name || "Opponent");
+        setPlayerNames([
+          session.player_1_name || "Player 1",
+          session.player_2_name || "Player 2",
+        ]);
+        setShowActiveGames(false);
+        setShowSetup(false);
+        setShowModeSelect(false);
+        // Resume game, don't show setup
+      }
+    } catch (error) {
+      console.error("Error resuming game:", error);
+    }
   }, []);
 
   const handleCancelMultiplayer = useCallback(async () => {
@@ -1179,6 +1239,14 @@ export function PrimeFactorGame() {
       setPlayerNames([name || "Player 1", playerNames[1]]);
     }}
   />
+
+  {/* Active Games Dialog */}
+  <ActiveGamesDialog
+    open={showActiveGames}
+    onOpenChange={setShowActiveGames}
+    userId={userId}
+    onResumeGame={handleResumeGame}
+  />
   
   {/* Multiplayer Mode Selector */}
   <MultiplayerModeDialog
@@ -1186,6 +1254,8 @@ export function PrimeFactorGame() {
     onOpenChange={setShowModeSelect}
     onModeSelect={handleModeSelect}
     gameName="Multiplication Game"
+    hasActiveGames={isAuthenticated}
+    onViewActiveGames={() => setShowActiveGames(true)}
   />
 
   {/* Game Lobby Dialog */}

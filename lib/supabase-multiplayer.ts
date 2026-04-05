@@ -400,3 +400,90 @@ export function subscribeToLobbies(
 
   return channel;
 }
+
+/**
+ * Validate that it's the current player's turn before making a move
+ */
+export async function validateTurn(
+  sessionId: string,
+  playerId: string,
+  timestamp?: string
+): Promise<{ valid: boolean; error?: string; currentTurnPlayer?: string }> {
+  try {
+    const response = await fetch('/api/validate-turn', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, playerId, timestamp }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        valid: false,
+        error: errorData.error,
+        currentTurnPlayer: errorData.currentTurnPlayer,
+      };
+    }
+
+    const data = await response.json();
+    return { valid: data.success };
+  } catch (error) {
+    console.error('Error validating turn:', error);
+    return { valid: false, error: 'Failed to validate turn' };
+  }
+}
+
+/**
+ * Send heartbeat to track player presence
+ */
+export async function sendHeartbeat(
+  userId: string,
+  sessionId: string,
+  isOnline: boolean = true
+): Promise<boolean> {
+  try {
+    const response = await fetch('/api/heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, sessionId, isOnline }),
+    });
+
+    if (!response.ok) {
+      console.warn('Heartbeat failed:', response.status);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error sending heartbeat:', error);
+    return false;
+  }
+}
+
+/**
+ * Update the current turn player in a session
+ */
+export async function updateCurrentTurn(
+  sessionId: string,
+  playerId: string
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('game_sessions')
+      .update({
+        current_turn_player_id: playerId,
+        last_move_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId);
+
+    if (error) {
+      console.error('Error updating turn:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Unexpected error updating turn:', error);
+    return false;
+  }
+}
