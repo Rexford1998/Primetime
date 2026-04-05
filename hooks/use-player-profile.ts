@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { getCurrentUser, AuthUser } from '@/lib/auth';
 import { supabase } from '@/lib/supabase-multiplayer';
 
+const log = (...args: any[]) => console.debug('[usePlayerProfile]', ...args);
+
 export function usePlayerProfile() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -14,7 +16,9 @@ export function usePlayerProfile() {
     const initUser = async () => {
       try {
         setLoading(true);
+        log('init: fetching current user');
         const currentUser = await getCurrentUser();
+        log('init: user', currentUser);
         setUser(currentUser);
       } catch (err) {
         console.error('Error fetching user:', err);
@@ -30,10 +34,13 @@ export function usePlayerProfile() {
   // Subscribe to auth state changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      log('auth state change', event, session?.user?.id);
       if (session?.user) {
         const currentUser = await getCurrentUser();
+        log('auth state user', currentUser);
         setUser(currentUser);
       } else {
+        log('auth state: no session');
         setUser(null);
       }
     });
@@ -47,6 +54,7 @@ export function usePlayerProfile() {
     if (!user) return false;
 
     try {
+      log('updatePlayerName', newName, user?.id);
       const { error } = await supabase
         .from('game_players')
         .update({ player_name: newName })

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { signUp, signIn, getCurrentUser } from "@/lib/auth";
+const log = (...args: any[]) => console.debug('[AuthDialog]', ...args);
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
 
   const checkCurrentUser = async () => {
     const user = await getCurrentUser();
+    log('init current user', user);
     if (user) {
       onAuthed(user.playerName, user.email, user.id);
       onOpenChange(false);
@@ -54,6 +56,7 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
     setLoading(true);
     setError("");
 
+    log('signUp', email);
     const result = await signUp(email, password, name);
 
     if (result.success && result.user) {
@@ -77,6 +80,7 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
     setLoading(true);
     setError("");
 
+    log('signIn', email);
     const result = await signIn(email, password);
 
     if (result.success && result.user) {
