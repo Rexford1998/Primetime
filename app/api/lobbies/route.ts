@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
     console.log('[v0] Fetching lobbies for gameType:', gameType);
     
     const { data, error } = await supabaseAdmin
-      .from('game_sessions')
-      .select('*, player1:player_1_id (player_name)')
+      .from('game_sessions_with_names')
+      .select('*')
       .eq('game_type', gameType)
       .eq('status', 'waiting');
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     const lobbies = (data || []).map((session: any) => ({
       ...session,
-      player_1_name: session.player1?.player_name ?? 'Unknown Player',
+      player_1_name: session.player_1_name ?? 'Unknown Player',
     }));
 
     return NextResponse.json(lobbies);
@@ -106,10 +106,19 @@ export async function POST(request: NextRequest) {
 
     console.log('[v0] Session created:', sessionData);
 
-    return NextResponse.json({
-      ...sessionData,
-      player_1_name: playerName,
-    });
+    // Fetch from the view to include names
+    const { data: viewData, error: viewError } = await supabaseAdmin
+      .from('game_sessions_with_names')
+      .select('*')
+      .eq('id', sessionData.id)
+      .single();
+
+    if (viewError) {
+      console.error('[v0] View fetch error:', viewError);
+      return NextResponse.json(sessionData);
+    }
+
+    return NextResponse.json(viewData);
   } catch (error) {
     console.error('[v0] Error creating lobby:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

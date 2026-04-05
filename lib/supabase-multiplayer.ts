@@ -47,6 +47,21 @@ export interface GameSession {
   player_2_name?: string;
 }
 
+async function fetchSessionById(id: string): Promise<GameSession | null> {
+  try {
+    const { data, error } = await supabase
+      .from('game_sessions_with_names')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return data as GameSession;
+  } catch (error) {
+    console.error('Error fetching session by id:', error);
+    return null;
+  }
+}
+
 export interface GamePlayer {
   id: string;
   player_id: string;
@@ -86,16 +101,11 @@ export async function createGameSession(
         player_2_id: null,
         status: 'waiting',
       })
-      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
+      .select()
       .single();
 
     if (error) throw error;
-    
-    return {
-      ...(data as GameSession),
-      player_1_name: (data as any)?.player1?.player_name,
-      player_2_name: (data as any)?.player2?.player_name,
-    } as GameSession;
+    return await fetchSessionById((data as GameSession).id);
   } catch (error) {
     console.error('Error creating game session:', error);
     return null;
@@ -117,8 +127,8 @@ export async function joinGameSession(
 
     // Find session
     const { data: session, error: findError } = await supabase
-      .from('game_sessions')
-      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
+      .from('game_sessions_with_names')
+      .select('*')
       .eq('session_code', sessionCode)
       .single();
 
@@ -135,16 +145,12 @@ export async function joinGameSession(
         status: 'active',
       })
       .eq('id', session.id)
-      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
+      .select()
       .single();
 
     if (updateError) throw updateError;
 
-    return {
-      ...(data as GameSession),
-      player_1_name: (data as any)?.player1?.player_name,
-      player_2_name: (data as any)?.player2?.player_name,
-    } as GameSession;
+    return await fetchSessionById((data as GameSession).id);
   } catch (error) {
     console.error('Error joining game session:', error);
     return null;
@@ -235,17 +241,13 @@ export function subscribeToSession(
 export async function getGameSession(sessionCode: string): Promise<GameSession | null> {
   try {
     const { data, error } = await supabase
-      .from('game_sessions')
-      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
+      .from('game_sessions_with_names')
+      .select('*')
       .eq('session_code', sessionCode)
       .single();
 
     if (error) throw error;
-    return {
-      ...(data as GameSession),
-      player_1_name: (data as any)?.player1?.player_name,
-      player_2_name: (data as any)?.player2?.player_name,
-    } as GameSession;
+    return data as GameSession;
   } catch (error) {
     console.error('Error fetching game session:', error);
     return null;
@@ -344,8 +346,8 @@ export async function joinGameLobby(
   try {
     // Get the current session
     const { data: session, error: findError } = await supabase
-      .from('game_sessions')
-      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
+      .from('game_sessions_with_names')
+      .select('*')
       .eq('id', sessionId)
       .single();
 
@@ -362,22 +364,18 @@ export async function joinGameLobby(
         status: 'active',
       })
       .eq('id', sessionId)
-      .select('*, player1:player_1_id (player_name), player2:player_2_id (player_name)')
+      .select()
       .single();
 
     if (updateError) throw updateError;
 
     // Store player info
-    await supabase.from('game_players').insert({
+    await supabase.from('game_players').upsert({
       player_id: playerId,
       player_name: playerName,
-    }).select().single();
+    });
 
-    return {
-      ...(data as GameSession),
-      player_1_name: (data as any)?.player1?.player_name,
-      player_2_name: (data as any)?.player2?.player_name,
-    } as GameSession;
+    return await fetchSessionById((data as GameSession).id);
   } catch (error) {
     console.error('Error joining game lobby:', error);
     return null;
