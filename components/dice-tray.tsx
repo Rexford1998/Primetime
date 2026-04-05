@@ -1,0 +1,208 @@
+"use client";
+
+import React from "react"
+
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+import type { Die } from "@/lib/game-utils";
+import type { DiceSkin } from "./dice-skin-settings";
+
+interface DiceTrayProps {
+  dice: Die[];
+  selectedDice: string[];
+  onDieClick: (die: Die) => void;
+  onReorder?: (newOrder: Die[]) => void;
+  disabled?: boolean;
+  skins?: DiceSkin[];
+  playerName?: string;
+  hideValues?: boolean;
+}
+
+export function DiceTray({
+  dice,
+  selectedDice,
+  onDieClick,
+  onReorder,
+  disabled = false,
+  skins = [],
+  playerName = "Your",
+  hideValues = false,
+}: DiceTrayProps) {
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, dieId: string) => {
+    setDraggedId(dieId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", dieId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, dieId: string) => {
+    e.preventDefault();
+    if (dieId !== draggedId) {
+      setDragOverId(dieId);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverId(null);
+    
+    if (!draggedId || draggedId === targetId || !onReorder) {
+      setDraggedId(null);
+      return;
+    }
+
+    const draggedIndex = dice.findIndex((d) => d.id === draggedId);
+    const targetIndex = dice.findIndex((d) => d.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedId(null);
+      return;
+    }
+
+    const newDice = [...dice];
+    const [draggedDie] = newDice.splice(draggedIndex, 1);
+    newDice.splice(targetIndex, 0, draggedDie);
+
+    onReorder(newDice);
+    setDraggedId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDragOverId(null);
+  };
+
+  return (
+    <div className="bg-card border rounded-lg p-4">
+      <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+        {playerName}&apos;s Dice ({dice.length} remaining){!hideValues && " - Click to select, drag to reorder"}
+      </h3>
+      <div className="flex flex-wrap gap-2 justify-center">
+        {hideValues ? (
+          dice.map((die) => (
+            <div
+              key={die.id}
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg font-bold text-lg flex items-center justify-center border-2 border-border bg-muted text-muted-foreground shadow-md"
+            >
+              ?
+            </div>
+          ))
+        ) : (
+          dice.map((die) => (
+            <DieComponent
+              key={die.id}
+              die={die}
+              isSelected={selectedDice.includes(die.id)}
+              onClick={() => onDieClick(die)}
+              disabled={disabled || die.used}
+              skin={skins.find((s) => s.value === die.value)}
+              isDragging={draggedId === die.id}
+              isDragOver={dragOverId === die.id}
+              onDragStart={(e) => handleDragStart(e, die.id)}
+              onDragOver={(e) => handleDragOver(e, die.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, die.id)}
+              onDragEnd={handleDragEnd}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface DieComponentProps {
+  die: Die;
+  isSelected: boolean;
+  onClick: () => void;
+  disabled: boolean;
+  skin?: DiceSkin;
+  isDragging: boolean;
+  isDragOver: boolean;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+}
+
+function DieComponent({ 
+  die, 
+  isSelected, 
+  onClick, 
+  disabled, 
+  skin,
+  isDragging,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+}: DieComponentProps) {
+  const isWild = die.value === "W";
+  const hasImage = skin?.imageUrl;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      draggable={!disabled}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className={cn(
+        "w-12 h-12 sm:w-14 sm:h-14 rounded-lg font-bold text-lg sm:text-xl",
+        "flex items-center justify-center transition-all duration-200",
+        "focus:outline-none focus:ring-2 focus:ring-ring",
+        "shadow-md hover:shadow-lg overflow-hidden relative",
+        die.used && "opacity-30 cursor-not-allowed",
+        !die.used && !disabled && "cursor-grab hover:-translate-y-0.5",
+        isDragging && "opacity-50 scale-95 cursor-grabbing",
+        isDragOver && "ring-2 ring-blue-500 scale-105",
+        isSelected
+          ? "ring-2 ring-chart-1 ring-offset-2 scale-110"
+          : "border-2 border-border",
+        !hasImage && isSelected && "bg-chart-1 text-white",
+        !hasImage && !isSelected && "bg-white text-foreground",
+        !hasImage && isWild && !isSelected && "bg-gradient-to-br from-amber-100 to-amber-200 border-amber-400"
+      )}
+    >
+      {hasImage ? (
+        <>
+          <img
+            src={skin.imageUrl || ""}
+            alt={`Dice ${die.value}`}
+            className={cn(
+              "w-full h-full object-cover",
+              isSelected && "brightness-110"
+            )}
+          />
+          <span
+            className={cn(
+              "absolute bottom-0 right-0 text-xs font-bold px-1 rounded-tl",
+              isSelected
+                ? "bg-chart-1 text-white"
+                : "bg-black/70 text-white"
+            )}
+          >
+            {die.value === "W" ? "W" : die.value}
+          </span>
+        </>
+      ) : die.value === "W" ? (
+        <span className="text-amber-600 text-base sm:text-lg">W</span>
+      ) : (
+        die.value
+      )}
+    </button>
+  );
+}
