@@ -1207,7 +1207,7 @@ export function PrimeFactorGame() {
   {isMultiplayer && waitingForOpponent && (
     <WaitingRoomDialog
       sessionCode={sessionCode ?? ""}
-      playerName="Player 1"
+      playerName={playerNames[0]}
       gameType={selectedGameType}
       onCancel={() => {
         handleCancelMultiplayer();
