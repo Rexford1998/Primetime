@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { signUp, signIn, getCurrentUser } from "@/lib/auth";
 const log = (...args: any[]) => console.debug('[AuthDialog]', ...args);
 import {
@@ -27,6 +27,7 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const authHandledRef = useRef(false);
 
   useEffect(() => {
     log('state snapshot', {
@@ -45,9 +46,32 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
       return;
     }
 
+    authHandledRef.current = false;
     log('dialog opened: checking current user');
     checkCurrentUser();
   }, [open]);
+
+  const finishAuth = useCallback((playerName: string, emailValue: string, userId: string | null, source: string) => {
+    if (authHandledRef.current) {
+      log('finishAuth: skipping duplicate completion', {
+        source,
+        playerName,
+        email: emailValue,
+        userId,
+      });
+      return;
+    }
+
+    authHandledRef.current = true;
+    log('finishAuth: completing auth', {
+      source,
+      playerName,
+      email: emailValue,
+      userId,
+    });
+    onAuthed(playerName, emailValue, userId);
+    onOpenChange(false);
+  }, [onAuthed, onOpenChange]);
 
   const checkCurrentUser = async () => {
     log('checkCurrentUser:start');
@@ -59,8 +83,7 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
         email: user.email,
         id: user.id,
       });
-      onAuthed(user.playerName, user.email, user.id);
-      onOpenChange(false);
+      finishAuth(user.playerName, user.email, user.id, 'checkCurrentUser');
     }
   };
 
@@ -90,8 +113,7 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
         email: result.user.email,
         id: result.user.id,
       });
-      onAuthed(result.user.playerName, result.user.email, result.user.id);
-      onOpenChange(false);
+      finishAuth(result.user.playerName, result.user.email, result.user.id, 'signUp');
     } else {
       log('signUp:error', result.error);
       setError(result.error || "Failed to sign up");
@@ -121,8 +143,7 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
         email: result.user.email,
         id: result.user.id,
       });
-      onAuthed(result.user.playerName, result.user.email, result.user.id);
-      onOpenChange(false);
+      finishAuth(result.user.playerName, result.user.email, result.user.id, 'signIn');
     } else {
       log('signIn:error', result.error);
       setError(result.error || "Failed to sign in");
@@ -139,8 +160,7 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
 
     localStorage.setItem("pf_player_name", name.trim());
     log('guest:start', { name: name.trim() });
-    onAuthed(name.trim(), "", null);
-    onOpenChange(false);
+    finishAuth(name.trim(), "", null, 'guest');
   };
 
   return (
