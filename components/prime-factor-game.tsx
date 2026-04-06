@@ -530,15 +530,24 @@ export function PrimeFactorGame() {
   };
 
   const handleSwitchGame = useCallback((url: string) => {
-    // If game is setup or finished, allow direct navigation
-    if (showSetup || gameState.phase === "gameOver") {
+    // Allow free navigation while still in pre-game setup flows.
+    const isPreGameState =
+      showSetup ||
+      showModeSelect ||
+      showLobby ||
+      showGameSetup ||
+      gameState.phase === "setup" ||
+      gameState.phase === "rolling" ||
+      gameState.phase === "gameOver";
+
+    if (isPreGameState) {
       window.location.href = url;
     } else {
       // Game is in progress, show confirmation
       setPendingExitUrl(url);
       setShowExitConfirmDialog(true);
     }
-  }, [showSetup, gameState.phase]);
+  }, [showGameSetup, showLobby, showModeSelect, showSetup, gameState.phase]);
 
   const handleModeSelect = useCallback((mode: ModeOption) => {
     // Force auth for multiplayer flows
