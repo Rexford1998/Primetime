@@ -1,8 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Gamepad2, Users, Bot, History } from "lucide-react";
 
-type ModeOption = "bot" | "local" | "create" | "join" | "active";
+export type ModeOption = "bot" | "local" | "create" | "join" | "active";
 
 interface MultiplayerModeDialogProps {
   open: boolean;
@@ -11,6 +10,95 @@ interface MultiplayerModeDialogProps {
   gameName: string;
   hasActiveGames?: boolean;
   onViewActiveGames?: () => void;
+}
+
+interface MultiplayerModeSelectorProps {
+  onModeSelect: (mode: ModeOption) => void;
+  gameName: string;
+  hasActiveGames?: boolean;
+  onViewActiveGames?: () => void;
+}
+
+export function MultiplayerModeSelector({
+  onModeSelect,
+  gameName,
+  hasActiveGames = false,
+  onViewActiveGames,
+}: MultiplayerModeSelectorProps) {
+  return (
+    <>
+      <DialogHeader className="space-y-3">
+        <DialogTitle>How do you want to play?</DialogTitle>
+        <DialogDescription>
+          Choose your mode for {gameName}. You&apos;ll configure details after picking a mode.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="grid gap-3">
+        {hasActiveGames && (
+          <button
+            type="button"
+            onClick={() => onViewActiveGames?.()}
+            className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800"
+          >
+            <div className="p-2 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400">
+              <History className="h-5 w-5" />
+            </div>
+            <div className="flex-1 text-left">
+              <div className="font-semibold">Resume Game</div>
+              <div className="text-sm text-muted-foreground">Continue one of your active games from any device.</div>
+            </div>
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => onModeSelect("bot")}
+          className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition"
+        >
+          <div className="p-2 rounded-full bg-primary/10 text-primary">
+            <Bot className="h-5 w-5" />
+          </div>
+          <div className="flex-1 text-left">
+            <div className="font-semibold">Play vs Bot</div>
+            <div className="text-sm text-muted-foreground">Opens setup to pick target score and bot difficulty.</div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onModeSelect("local")}
+          className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition"
+        >
+          <div className="p-2 rounded-full bg-secondary/20 text-secondary-foreground">
+            <Gamepad2 className="h-5 w-5" />
+          </div>
+          <div className="flex-1 text-left">
+            <div className="font-semibold">Local Pass & Play</div>
+            <div className="text-sm text-muted-foreground">Two players on one device without bots.</div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onModeSelect("create")}
+          className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition"
+        >
+          <div className="p-2 rounded-full bg-muted text-foreground">
+            <Users className="h-5 w-5" />
+          </div>
+          <div className="flex-1 text-left">
+            <div className="font-semibold">Find Multiplayer Match</div>
+            <div className="text-sm text-muted-foreground">Browse open lobbies or create a new game.</div>
+          </div>
+        </button>
+      </div>
+
+      <p className="text-xs text-muted-foreground text-center pt-2">
+        You can switch modes anytime from setup.
+      </p>
+    </>
+  );
 }
 
 export function MultiplayerModeDialog({ 
@@ -24,88 +112,18 @@ export function MultiplayerModeDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>How do you want to play?</DialogTitle>
-          <DialogDescription>
-            Choose your mode for {gameName}. You'll configure details after picking a mode.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-3">
-          {hasActiveGames && (
-            <button
-              type="button"
-              onClick={() => {
-                onViewActiveGames?.();
-                onOpenChange(false);
-              }}
-              className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800"
-            >
-              <div className="p-2 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                <History className="h-5 w-5" />
-              </div>
-              <div className="flex-1 text-left">
-                <div className="font-semibold">Resume Game</div>
-                <div className="text-sm text-muted-foreground">Continue one of your active games from any device.</div>
-              </div>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              onModeSelect("bot");
-              onOpenChange(false);
-            }}
-            className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition"
-          >
-            <div className="p-2 rounded-full bg-primary/10 text-primary">
-              <Bot className="h-5 w-5" />
-            </div>
-            <div className="flex-1 text-left">
-              <div className="font-semibold">Play vs Bot</div>
-              <div className="text-sm text-muted-foreground">Opens setup to pick target score and bot difficulty.</div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onModeSelect("local");
-              onOpenChange(false);
-            }}
-            className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition"
-          >
-            <div className="p-2 rounded-full bg-secondary/20 text-secondary-foreground">
-              <Gamepad2 className="h-5 w-5" />
-            </div>
-            <div className="flex-1 text-left">
-              <div className="font-semibold">Local Pass & Play</div>
-              <div className="text-sm text-muted-foreground">Two players on one device without bots.</div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onModeSelect("create");
-              onOpenChange(false);
-            }}
-            className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition"
-          >
-            <div className="p-2 rounded-full bg-muted text-foreground">
-              <Users className="h-5 w-5" />
-            </div>
-            <div className="flex-1 text-left">
-              <div className="font-semibold">Find Multiplayer Match</div>
-              <div className="text-sm text-muted-foreground">Browse open lobbies or create a new game.</div>
-            </div>
-          </button>
-        </div>
-
-        <p className="text-xs text-muted-foreground text-center pt-2">
-          You can switch modes anytime from the setup dialog.
-        </p>
+        <MultiplayerModeSelector
+          onModeSelect={(mode) => {
+            onModeSelect(mode);
+            onOpenChange(false);
+          }}
+          gameName={gameName}
+          hasActiveGames={hasActiveGames}
+          onViewActiveGames={() => {
+            onViewActiveGames?.();
+            onOpenChange(false);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

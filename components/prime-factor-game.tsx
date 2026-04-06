@@ -32,10 +32,10 @@ import { BonusBreakdownPanel } from "./bonus-breakdown";
 import type { CompletedTrack } from "./connection-animation";
 import { getBotMoveForMultiplication, type BotDifficulty } from "@/lib/bot-utils";
 import { MultiplicationGameTutorial } from "./multiplication-tutorial";
-import { MultiplayerModeDialog } from "./multiplayer-mode-dialog";
+import { MultiplayerModeSelector, type ModeOption } from "./multiplayer-mode-dialog";
 import { WaitingRoomDialog } from "./waiting-room-dialog";
 import { GameLobby } from "./game-lobby";
-import { GameSetupDialog } from "./game-setup-dialog";
+import { GameSetupForm } from "./game-setup-dialog";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { createGameLobby, joinGameLobby, cancelGameLobby, getGameSession, subscribeToSession, subscribeToGameState, updateGameState, generatePlayerId, sendHeartbeat, validateTurn, updateCurrentTurn } from "@/lib/supabase-multiplayer";
 import { AuthDialog } from "./auth-dialog";
 import { ActiveGamesDialog } from "./active-games-dialog";
@@ -539,10 +540,14 @@ export function PrimeFactorGame() {
     }
   }, [showSetup, gameState.phase]);
 
-  const handleModeSelect = useCallback((mode: "bot" | "local" | "create" | "join") => {
+  const handleModeSelect = useCallback((mode: ModeOption) => {
     // Force auth for multiplayer flows
     if ((mode === "create" || mode === "join") && !playerNames[0]) {
       setShowAuth(true);
+      return;
+    }
+    if (mode === "active") {
+      setShowActiveGames(true);
       return;
     }
     if (mode === "bot") {
@@ -1192,6 +1197,161 @@ export function PrimeFactorGame() {
     return Array.from(set);
   }, [validMoves, possibleMoveHighlights]);
 
+  const showPreGameSetupPage = showModeSelect || showLobby || showGameSetup;
+
+  if (showPreGameSetupPage) {
+    const setupTitle = showGameSetup
+      ? "Create a Multiplayer Lobby"
+      : showLobby
+        ? "Find a Multiplayer Match"
+        : "Set Up Your Game";
+    const setupDescription = showGameSetup
+      ? "Choose how this match should run before you open the lobby."
+      : showLobby
+        ? "Browse live rooms, switch game types, or spin up a new match."
+        : "Pick the way you want to play, then we’ll move you straight into the right experience.";
+
+    return (
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_35%),linear-gradient(180deg,#f8fbff_0%,#eef5ff_48%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.2),_transparent_30%),linear-gradient(180deg,#0f172a_0%,#111827_45%,#030712_100%)]">
+        <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/70">
+                Multiplication Game
+              </p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                {setupTitle}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+                {setupDescription}
+              </p>
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => handleSwitchGame("/give-or-take")}
+              className="shrink-0"
+            >
+              Try Give or Take
+            </Button>
+          </div>
+
+          <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="rounded-[28px] border border-slate-200/70 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(37,99,235,0.35)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+              {showModeSelect && (
+                <MultiplayerModeSelector
+                  onModeSelect={handleModeSelect}
+                  gameName="Multiplication Game"
+                  hasActiveGames={isAuthenticated}
+                  onViewActiveGames={() => setShowActiveGames(true)}
+                />
+              )}
+
+              {showLobby && (
+                <div className="space-y-6">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="gap-2 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    onClick={() => {
+                      setShowLobby(false);
+                      setShowModeSelect(true);
+                    }}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to game modes
+                  </Button>
+
+                  <GameLobby
+                    gameType={selectedGameType}
+                    onSelectLobby={handleSelectLobby}
+                    onCreateNew={handleCreateNewLobby}
+                    isOpen={showLobby}
+                    onChangeGameType={(type) => setSelectedGameType(type)}
+                  />
+                </div>
+              )}
+
+              {showGameSetup && (
+                <div className="space-y-6">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="gap-2 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    onClick={() => {
+                      setShowGameSetup(false);
+                      setShowLobby(true);
+                    }}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to lobby browser
+                  </Button>
+
+                  <GameSetupForm
+                    gameType={selectedGameType}
+                    defaultPlayerName={authUser?.playerName || playerNames[0]}
+                    onCreateLobby={handleGameSetupSubmit}
+                    onCancel={() => {
+                      setShowGameSetup(false);
+                      setShowLobby(true);
+                    }}
+                    isLoading={lobbyLoading}
+                  />
+                </div>
+              )}
+            </div>
+
+            <aside className="rounded-[28px] border border-slate-200/70 bg-slate-950 p-6 text-slate-50 shadow-[0_24px_80px_-28px_rgba(15,23,42,0.55)] dark:border-slate-700">
+              <div className="flex items-center gap-2 text-sky-300">
+                <Sparkles className="h-4 w-4" />
+                <span className="text-xs font-semibold uppercase tracking-[0.28em]">
+                  Setup Flow
+                </span>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-sm font-semibold">Signed in as</p>
+                  <p className="mt-1 text-2xl font-bold text-white">
+                    {authUser?.playerName || playerNames[0] || "Player 1"}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-300">
+                    Your setup now lives on its own screen, so you can focus before the board appears.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 p-4">
+                  <p className="text-sm font-semibold text-sky-200">What happens next</p>
+                  <ul className="mt-3 space-y-3 text-sm text-slate-200">
+                    <li>Choose bot, local play, or multiplayer.</li>
+                    <li>For multiplayer, browse live rooms or create one with your signed-in profile.</li>
+                    <li>Once setup is done, you drop into the game instead of stacking dialogs on top of it.</li>
+                  </ul>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <AuthDialog
+          open={showAuth}
+          onOpenChange={setShowAuth}
+          onAuthed={(name, _email, userId) => {
+            if (userId) setPlayerId(userId);
+            setPlayerNames([name || "Player 1", playerNames[1]]);
+          }}
+        />
+
+        <ActiveGamesDialog
+          open={showActiveGames}
+          onOpenChange={setShowActiveGames}
+          userId={userId}
+          onResumeGame={handleResumeGame}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto space-y-4">
@@ -1366,47 +1526,6 @@ export function PrimeFactorGame() {
     onOpenChange={setShowActiveGames}
     userId={userId}
     onResumeGame={handleResumeGame}
-  />
-  
-  {/* Multiplayer Mode Selector */}
-  <MultiplayerModeDialog
-    open={showModeSelect}
-    onOpenChange={setShowModeSelect}
-    onModeSelect={handleModeSelect}
-    gameName="Multiplication Game"
-    hasActiveGames={isAuthenticated}
-    onViewActiveGames={() => setShowActiveGames(true)}
-  />
-
-  {/* Game Lobby Dialog */}
-  {showLobby && (
-    <Dialog open={showLobby} onOpenChange={setShowLobby}>
-      <DialogContent className="max-h-[70vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Find a Multiplayer Game</DialogTitle>
-          <DialogDescription>
-            Browse open lobbies or create your own game
-          </DialogDescription>
-        </DialogHeader>
-        <GameLobby
-          gameType={selectedGameType}
-          onSelectLobby={handleSelectLobby}
-          onCreateNew={handleCreateNewLobby}
-          isOpen={showLobby}
-          onChangeGameType={(type) => setSelectedGameType(type)}
-        />
-      </DialogContent>
-    </Dialog>
-  )}
-
-  {/* Game Setup Dialog */}
-  <GameSetupDialog
-    open={showGameSetup}
-    onOpenChange={setShowGameSetup}
-    gameType={selectedGameType}
-    defaultPlayerName={authUser?.playerName || playerNames[0]}
-    onCreateLobby={handleGameSetupSubmit}
-    isLoading={lobbyLoading}
   />
 
   {/* Waiting Room */}
