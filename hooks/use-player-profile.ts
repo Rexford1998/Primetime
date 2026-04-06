@@ -119,7 +119,14 @@ export function usePlayerProfile() {
         currentPlayerName: latestUserRef.current?.playerName ?? null,
       });
 
-      setLoading(true);
+      const shouldBlockUi = !latestUserRef.current;
+      debug('auth state change:ui loading decision', {
+        shouldBlockUi,
+        hasExistingUser: !!latestUserRef.current,
+      });
+      if (shouldBlockUi) {
+        setLoading(true);
+      }
 
       try {
         if (session?.user) {

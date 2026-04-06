@@ -12,6 +12,7 @@ const headerLog = (...args: any[]) => console.debug("[AppHeader]", ...args);
 export function AppHeader() {
   const { user, isAuthenticated, loading } = usePlayerProfile();
   const [showAuth, setShowAuth] = useState(false);
+  const showLoadingPlaceholder = loading && !user;
 
   useEffect(() => {
     headerLog("state snapshot", {
@@ -35,7 +36,7 @@ export function AppHeader() {
     window.location.reload();
   };
 
-  if (loading) {
+  if (showLoadingPlaceholder) {
     headerLog("render: loading placeholder visible", {
       userId: user?.id ?? null,
       playerName: user?.playerName ?? null,
@@ -99,9 +100,8 @@ export function AppHeader() {
           setShowAuth(open);
         }}
         onAuthed={() => {
-          headerLog("auth dialog onAuthed -> closing and reloading");
+          headerLog("auth dialog onAuthed -> closing without reload");
           setShowAuth(false);
-          window.location.reload();
         }}
       />
     </>

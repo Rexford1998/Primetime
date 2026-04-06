@@ -40,10 +40,14 @@ export function AuthDialog({ open, onOpenChange, onAuthed }: AuthDialogProps) {
   }, [open, mode, loading, error, email, name]);
 
   useEffect(() => {
-    // Check if user is already authenticated
-    log('mount: checking current user');
+    if (!open) {
+      log('auth check skipped while dialog is closed');
+      return;
+    }
+
+    log('dialog opened: checking current user');
     checkCurrentUser();
-  }, []);
+  }, [open]);
 
   const checkCurrentUser = async () => {
     log('checkCurrentUser:start');
