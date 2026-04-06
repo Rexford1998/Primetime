@@ -1414,26 +1414,15 @@ export function PrimeFactorGame() {
     return (
       <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_35%),linear-gradient(180deg,#f8fbff_0%,#eef5ff_48%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.2),_transparent_30%),linear-gradient(180deg,#0f172a_0%,#111827_45%,#030712_100%)]">
         <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4">
+          <div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/70">
-                Multiplication Game
-              </p>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                 {setupTitle}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
                 {setupDescription}
               </p>
             </div>
-
-            <Button
-              variant="outline"
-              onClick={() => handleSwitchGame("/give-or-take")}
-              className="shrink-0"
-            >
-              Try Give or Take
-            </Button>
           </div>
 
           <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
