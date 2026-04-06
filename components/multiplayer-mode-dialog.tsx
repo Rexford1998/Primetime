@@ -35,6 +35,20 @@ export function MultiplayerModeSelector({
       </div>
 
       <div className="grid gap-3">
+        <button
+          type="button"
+          onClick={() => onModeSelect("create")}
+          className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition"
+        >
+          <div className="p-2 rounded-full bg-muted text-foreground">
+            <Users className="h-5 w-5" />
+          </div>
+          <div className="flex-1 text-left">
+            <div className="font-semibold">Find Multiplayer Match</div>
+            <div className="text-sm text-muted-foreground">Browse open lobbies or create a new game.</div>
+          </div>
+        </button>
+
         {hasActiveGames && (
           <button
             type="button"
@@ -76,20 +90,6 @@ export function MultiplayerModeSelector({
           <div className="flex-1 text-left">
             <div className="font-semibold">Local Pass & Play</div>
             <div className="text-sm text-muted-foreground">Two players on one device without bots.</div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onModeSelect("create")}
-          className="flex items-center gap-3 p-4 rounded-lg border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition"
-        >
-          <div className="p-2 rounded-full bg-muted text-foreground">
-            <Users className="h-5 w-5" />
-          </div>
-          <div className="flex-1 text-left">
-            <div className="font-semibold">Find Multiplayer Match</div>
-            <div className="text-sm text-muted-foreground">Browse open lobbies or create a new game.</div>
           </div>
         </button>
       </div>
