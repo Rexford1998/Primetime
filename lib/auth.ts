@@ -220,7 +220,26 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       console.error('Error fetching player profile:', playerError);
     }
 
-    const playerName = playerData?.player_name || user.user_metadata?.player_name || '';
+    // If no profile, create one on the fly
+    let playerName = playerData?.player_name || user.user_metadata?.player_name || '';
+    if (!playerData) {
+      const fallbackName = playerName || (user.email ? user.email.split('@')[0] : 'Player');
+      const { error: upsertError } = await supabase.from('game_players').upsert({
+        player_id: user.id,
+        auth_user_id: user.id,
+        email: user.email?.toLowerCase() || null,
+        player_name: fallbackName,
+      });
+      if (upsertError) {
+        console.error('Error creating player profile:', upsertError);
+      } else {
+        playerName = fallbackName;
+      }
+    }
+
+    if (!playerName && user.email) {
+      playerName = user.email.split('@')[0];
+    }
 
     return {
       id: user.id,
