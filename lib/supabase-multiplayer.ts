@@ -183,19 +183,23 @@ export async function updateGameState(
   currentTurn: number
 ): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('game_states')
-      .upsert({
-        session_id: sessionId,
-        player_id: playerId,
-        game_data: gameData,
-        current_turn: currentTurn,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'session_id,player_id',
-      });
+    const response = await fetch('/api/game-states', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        playerId,
+        gameData,
+        currentTurn,
+      }),
+    });
 
-    if (error) throw error;
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('Game state save failed HTTP', response.status, text);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     return true;
   } catch (error) {
     console.error('Error updating game state:', error);
@@ -205,12 +209,14 @@ export async function updateGameState(
 
 export async function getGameStates(sessionId: string): Promise<GameState[]> {
   try {
-    const { data, error } = await supabase
-      .from('game_states')
-      .select('*')
-      .eq('session_id', sessionId);
+    const response = await fetch(`/api/game-states?sessionId=${encodeURIComponent(sessionId)}`);
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('Game state fetch failed HTTP', response.status, text);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-    if (error) throw error;
+    const data = await response.json();
     return data as GameState[];
   } catch (error) {
     console.error('Error fetching game states:', error);
