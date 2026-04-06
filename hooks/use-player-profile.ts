@@ -9,7 +9,7 @@ type GuestUser = { id: string; email: string; playerName: string };
 const log = (...args: any[]) => console.debug('[usePlayerProfile]', ...args);
 
 export function usePlayerProfile() {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | GuestUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,14 +48,22 @@ export function usePlayerProfile() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       log('auth state change', event, session?.user?.id);
+      setLoading(true);
       if (session?.user) {
         const currentUser = await getCurrentUser();
         log('auth state user', currentUser);
-        setUser(currentUser);
+        if (currentUser) {
+          setUser(currentUser);
+        } else {
+          const guestName = typeof window !== 'undefined' ? localStorage.getItem('pf_player_name') : null;
+          setUser(guestName ? { id: 'guest', email: '', playerName: guestName } : null);
+        }
       } else {
         log('auth state: no session');
-        setUser(null);
+        const guestName = typeof window !== 'undefined' ? localStorage.getItem('pf_player_name') : null;
+        setUser(guestName ? { id: 'guest', email: '', playerName: guestName } : null);
       }
+      setLoading(false);
     });
 
     return () => {
