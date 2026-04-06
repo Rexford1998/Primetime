@@ -603,7 +603,6 @@ export function PrimeFactorGame() {
     );
     setBonusHistory(Array.isArray(savedState.bonusHistory) ? savedState.bonusHistory : []);
     setCompletedTracks(Array.isArray(savedState.completedTracks) ? savedState.completedTracks : []);
-    setSelectedSpace(null);
   }, [getSavedStateVersion]);
 
   const getLatestGameStateRecord = useCallback((states: Array<Record<string, any>>) => {
