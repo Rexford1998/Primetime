@@ -20,6 +20,7 @@ interface TargetScoreSelectorProps {
   onShowTutorial?: () => void;
   onPlayOnline?: () => void;
   isMultiplayer?: boolean;
+  isLocalPlay?: boolean;
   fixedTargetScore?: number;
 }
 
@@ -42,6 +43,7 @@ export function TargetScoreSelector({
   onShowTutorial,
   onPlayOnline,
   isMultiplayer = false,
+  isLocalPlay = false,
   fixedTargetScore = 37,
 }: TargetScoreSelectorProps) {
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | "custom">(1);
@@ -141,42 +143,44 @@ export function TargetScoreSelector({
               </p>
 
               {/* Bot Toggle */}
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => setBotEnabled(!botEnabled)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
-                    botEnabled
-                      ? "border-primary bg-primary/10 shadow-md"
-                      : "border-border hover:border-primary/50 hover:bg-muted"
-                  }`}
-                >
-                  <span className="text-sm font-bold">Play vs Bot</span>
-                  <span className={`text-xs px-2 py-1 rounded ${botEnabled ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                    {botEnabled ? "ON" : "OFF"}
-                  </span>
-                </button>
+              {!isLocalPlay && (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setBotEnabled(!botEnabled)}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                      botEnabled
+                        ? "border-primary bg-primary/10 shadow-md"
+                        : "border-border hover:border-primary/50 hover:bg-muted"
+                    }`}
+                  >
+                    <span className="text-sm font-bold">Play vs Bot</span>
+                    <span className={`text-xs px-2 py-1 rounded ${botEnabled ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                      {botEnabled ? "ON" : "OFF"}
+                    </span>
+                  </button>
 
-                {botEnabled && (
-                  <div className="flex gap-2">
-                    {BOT_DIFFICULTIES.map((diff) => (
-                      <button
-                        key={diff.value}
-                        type="button"
-                        onClick={() => setBotDifficulty(diff.value)}
-                        className={`flex-1 flex flex-col items-center gap-0.5 p-2 rounded-lg border-2 transition-all ${
-                          botDifficulty === diff.value
-                            ? "border-primary bg-primary/10 shadow-md"
-                            : "border-border hover:border-primary/50 hover:bg-muted"
-                        }`}
-                      >
-                        <span className="text-sm font-bold">{diff.label}</span>
-                        <span className="text-[10px] text-muted-foreground">{diff.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  {botEnabled && (
+                    <div className="flex gap-2">
+                      {BOT_DIFFICULTIES.map((diff) => (
+                        <button
+                          key={diff.value}
+                          type="button"
+                          onClick={() => setBotDifficulty(diff.value)}
+                          className={`flex-1 flex flex-col items-center gap-0.5 p-2 rounded-lg border-2 transition-all ${
+                            botDifficulty === diff.value
+                              ? "border-primary bg-primary/10 shadow-md"
+                              : "border-border hover:border-primary/50 hover:bg-muted"
+                          }`}
+                        >
+                          <span className="text-sm font-bold">{diff.label}</span>
+                          <span className="text-[10px] text-muted-foreground">{diff.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Scoring info */}
               <div className="bg-muted rounded-lg p-3 text-sm space-y-2">

@@ -1840,6 +1840,7 @@ export function PrimeFactorGame() {
     onStartGame={handleStartGame}
     onShowTutorial={() => setShowTutorial(true)}
     isMultiplayer={isMultiplayer}
+    isLocalPlay={!botEnabled && !isMultiplayer}
     fixedTargetScore={multiplayerTargetScore}
     onPlayOnline={() => {
       setShowModeSelect(true);
