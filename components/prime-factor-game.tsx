@@ -412,8 +412,8 @@ export function PrimeFactorGame() {
       phase: "rolling",
       message: "Player 1, roll the dice to start the game!",
     }));
-    if (isMultiplayer) persistGameState('start');
-  }, [playerNames, isMultiplayer, persistGameState]);
+    if (isMultiplayer) updateGameState('start');
+  }, [playerNames, isMultiplayer, updateGameState]);
 
   // Sort dice by value
   const sortDice = (dice: Die[]): Die[] => {
@@ -622,8 +622,8 @@ export function PrimeFactorGame() {
       message: `${prev.players[prev.currentPlayer].name}, select dice to match a space's factorization!`,
     }));
 
-    persistGameState('roll');
-  }, [isMultiplayer, sessionId, playerId, persistGameState]);
+    updateGameState('roll');
+  }, [isMultiplayer, sessionId, playerId, updateGameState]);
 
   // Claim a space
   const handleClaim = useCallback(async () => {
@@ -774,8 +774,8 @@ export function PrimeFactorGame() {
     });
     
     setSelectedSpace(null);
-    persistGameState('claim');
-  }, [selectedSpace, canClaimSpace, gameState.selectedDice, gameState.currentPlayer, getAnimationPosition, spawnPointAnimation, spawnFireworks, isMultiplayer, sessionId, playerId, validateTurn, persistGameState]);
+    updateGameState('claim');
+  }, [selectedSpace, canClaimSpace, gameState.selectedDice, gameState.currentPlayer, getAnimationPosition, spawnPointAnimation, spawnFireworks, isMultiplayer, sessionId, playerId, validateTurn, updateGameState]);
 
   // Cancel selection
   const handleCancel = useCallback(() => {
@@ -853,8 +853,8 @@ export function PrimeFactorGame() {
       };
       return newState;
     });
-    persistGameState('end-turn');
-  }, [hasAnyValidMove, checkPlayerHasMoves, isMultiplayer, sessionId, playerId, validateTurn, persistGameState]);
+    updateGameState('end-turn');
+  }, [hasAnyValidMove, checkPlayerHasMoves, isMultiplayer, sessionId, playerId, validateTurn, updateGameState]);
 
   // Timer expired
   const handleTimeUp = useCallback(() => {
@@ -1041,7 +1041,7 @@ export function PrimeFactorGame() {
         message: `Round ${prev.roundNumber} started! ${prev.players[startingPlayer].name} goes first.`,
       };
     });
-    persistGameState('new-round');
+    updateGameState('new-round');
   }, [gameState.roundNumber]);
 
   // Reorder dice
