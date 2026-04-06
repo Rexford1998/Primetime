@@ -101,6 +101,7 @@ export function PrimeFactorGame() {
   const [showGameSetup, setShowGameSetup] = useState(false);
   const [lobbyLoading, setLobbyLoading] = useState(false);
   const [heartbeatInterval, setHeartbeatInterval] = useState<NodeJS.Timeout | null>(null);
+  const [multiplayerTargetScore, setMultiplayerTargetScore] = useState(37);
   
   // Track each player's dice separately
   const [player1Dice, setPlayer1Dice] = useState<Die[]>([]);
@@ -746,6 +747,7 @@ export function PrimeFactorGame() {
           setSessionId(session.id);
           setSessionPlayer1Id(session.player_1_id);
           setSessionPlayer2Id(session.player_2_id);
+          setMultiplayerTargetScore(session.target_score || 37);
           setIsMultiplayer(true);
           setMultiplayerMode("join");
           setWaitingForOpponent(false);
@@ -790,6 +792,7 @@ export function PrimeFactorGame() {
         setSessionId(session.id);
         setSessionPlayer1Id(session.player_1_id);
         setSessionPlayer2Id(session.player_2_id);
+        setMultiplayerTargetScore(session.target_score || 37);
         setSelectedGameType(session.game_type);
         setIsMultiplayer(true);
         setMultiplayerMode("join");
@@ -851,6 +854,7 @@ export function PrimeFactorGame() {
         if (session && session.player_2_id) {
           setSessionPlayer1Id(session.player_1_id);
           setSessionPlayer2Id(session.player_2_id);
+          setMultiplayerTargetScore(session.target_score || 37);
           setOpponentHasJoined(true);
           setOpponentName(session.player_2_name || "Opponent");
         }
@@ -869,6 +873,7 @@ export function PrimeFactorGame() {
       setSessionId(session.id);
       setSessionPlayer1Id(session.player_1_id);
       setSessionPlayer2Id(session.player_2_id);
+      setMultiplayerTargetScore(session.target_score || 37);
       setPlayerNames([
         session.player_1_name || "Player 1",
         session.player_2_name || "Player 2",
@@ -910,6 +915,7 @@ export function PrimeFactorGame() {
           setSessionId(session.id);
           setSessionPlayer1Id(session.player_1_id);
           setSessionPlayer2Id(session.player_2_id);
+          setMultiplayerTargetScore(settings.targetScore || session.target_score || 37);
           setIsMultiplayer(true);
           setMultiplayerMode("create");
           setWaitingForOpponent(true);
@@ -1747,6 +1753,8 @@ export function PrimeFactorGame() {
     onOpenChange={setShowSetup}
     onStartGame={handleStartGame}
     onShowTutorial={() => setShowTutorial(true)}
+    isMultiplayer={isMultiplayer}
+    fixedTargetScore={multiplayerTargetScore}
     onPlayOnline={() => {
       setShowModeSelect(true);
       setShowSetup(false);

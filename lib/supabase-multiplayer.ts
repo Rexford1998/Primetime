@@ -58,6 +58,8 @@ export interface GameSession {
   updated_at: string;
   player_1_name?: string;
   player_2_name?: string;
+  target_score?: number;
+  bot_difficulty?: string;
 }
 
 async function fetchSessionById(id: string): Promise<GameSession | null> {

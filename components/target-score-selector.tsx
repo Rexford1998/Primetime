@@ -19,6 +19,8 @@ interface TargetScoreSelectorProps {
   onStartGame: (targetScore: number, botEnabled: boolean, botDifficulty: BotDifficulty) => void;
   onShowTutorial?: () => void;
   onPlayOnline?: () => void;
+  isMultiplayer?: boolean;
+  fixedTargetScore?: number;
 }
 
 const BOT_DIFFICULTIES: { label: string; value: BotDifficulty; description: string }[] = [
@@ -39,6 +41,8 @@ export function TargetScoreSelector({
   onStartGame,
   onShowTutorial,
   onPlayOnline,
+  isMultiplayer = false,
+  fixedTargetScore = 37,
 }: TargetScoreSelectorProps) {
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | "custom">(1);
   const [customScore, setCustomScore] = useState("");
@@ -46,13 +50,15 @@ export function TargetScoreSelector({
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>("medium");
 
   const activeScore =
-    selectedDifficulty === "custom"
+    isMultiplayer
+      ? fixedTargetScore
+      : selectedDifficulty === "custom"
       ? Number.parseInt(customScore, 10) || 0
       : DIFFICULTY_PRESETS[selectedDifficulty].score;
 
   const handleStartGame = () => {
     if (activeScore >= 1) {
-      onStartGame(activeScore, botEnabled, botDifficulty);
+      onStartGame(activeScore, isMultiplayer ? false : botEnabled, botDifficulty);
     }
   };
 
@@ -62,123 +68,134 @@ export function TargetScoreSelector({
         <DialogHeader>
           <DialogTitle>Game Setup</DialogTitle>
           <DialogDescription>
-            Choose your difficulty level or set a custom target score
+            {isMultiplayer
+              ? "This multiplayer match is already configured. Review the rules if needed, then start."
+              : "Choose your difficulty level or set a custom target score"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Difficulty Buttons */}
-          <div className="grid grid-cols-3 gap-3">
-            {DIFFICULTY_PRESETS.map((preset, idx) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => {
-                  setSelectedDifficulty(idx);
-                  setCustomScore("");
-                }}
-                className={`flex flex-col items-center gap-1 p-4 rounded-lg border-2 transition-all ${
-                  selectedDifficulty === idx
-                    ? "border-primary bg-primary/10 shadow-md"
-                    : "border-border hover:border-primary/50 hover:bg-muted"
-                }`}
-              >
-                <span className="text-lg font-bold">{preset.label}</span>
-                <span className="text-2xl font-black text-primary">{preset.score}</span>
-                <span className="text-xs text-muted-foreground text-center">{preset.description}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Custom Score */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => setSelectedDifficulty("custom")}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                selectedDifficulty === "custom"
-                  ? "border-primary bg-primary/10 shadow-md"
-                  : "border-border hover:border-primary/50 hover:bg-muted"
-              }`}
-            >
-              <span className="text-sm font-bold">Custom</span>
-              <input
-                type="number"
-                min={1}
-                max={999}
-                placeholder="Enter target score"
-                value={customScore}
-                onFocus={() => setSelectedDifficulty("custom")}
-                onChange={(e) => {
-                  setSelectedDifficulty("custom");
-                  setCustomScore(e.target.value);
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="flex-1 bg-background border rounded px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary"
-              />
-            </button>
-          </div>
-
-          <p className="text-sm text-muted-foreground text-center">
-            {activeScore >= 1
-              ? `First player to reach ${activeScore} points wins`
-              : "Enter a valid target score"}
-          </p>
-
-          {/* Bot Toggle */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => setBotEnabled(!botEnabled)}
-              className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
-                botEnabled
-                  ? "border-primary bg-primary/10 shadow-md"
-                  : "border-border hover:border-primary/50 hover:bg-muted"
-              }`}
-            >
-              <span className="text-sm font-bold">Play vs Bot</span>
-              <span className={`text-xs px-2 py-1 rounded ${botEnabled ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                {botEnabled ? "ON" : "OFF"}
-              </span>
-            </button>
-
-            {botEnabled && (
-              <div className="flex gap-2">
-                {BOT_DIFFICULTIES.map((diff) => (
+          {isMultiplayer ? (
+            <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
+              This lobby already has its multiplayer settings locked in. If anyone needs a refresher, open
+              <span className="font-semibold text-foreground"> How to Play</span> before starting.
+            </div>
+          ) : (
+            <>
+              {/* Difficulty Buttons */}
+              <div className="grid grid-cols-3 gap-3">
+                {DIFFICULTY_PRESETS.map((preset, idx) => (
                   <button
-                    key={diff.value}
+                    key={preset.label}
                     type="button"
-                    onClick={() => setBotDifficulty(diff.value)}
-                    className={`flex-1 flex flex-col items-center gap-0.5 p-2 rounded-lg border-2 transition-all ${
-                      botDifficulty === diff.value
+                    onClick={() => {
+                      setSelectedDifficulty(idx);
+                      setCustomScore("");
+                    }}
+                    className={`flex flex-col items-center gap-1 p-4 rounded-lg border-2 transition-all ${
+                      selectedDifficulty === idx
                         ? "border-primary bg-primary/10 shadow-md"
                         : "border-border hover:border-primary/50 hover:bg-muted"
                     }`}
                   >
-                    <span className="text-sm font-bold">{diff.label}</span>
-                    <span className="text-[10px] text-muted-foreground">{diff.description}</span>
+                    <span className="text-lg font-bold">{preset.label}</span>
+                    <span className="text-2xl font-black text-primary">{preset.score}</span>
+                    <span className="text-xs text-muted-foreground text-center">{preset.description}</span>
                   </button>
                 ))}
               </div>
-            )}
-          </div>
 
-          {/* Scoring info */}
-          <div className="bg-muted rounded-lg p-3 text-sm space-y-2">
-            <div className="font-semibold">Scoring Rules:</div>
-            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-              <li>+1 point for each space claimed</li>
-              <li>+1 bonus for each space in a completed connection between prime numbers</li>
-              <li>Connections can be horizontal, vertical, or diagonal</li>
-            </ul>
-          </div>
+              {/* Custom Score */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDifficulty("custom")}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                    selectedDifficulty === "custom"
+                      ? "border-primary bg-primary/10 shadow-md"
+                      : "border-border hover:border-primary/50 hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-sm font-bold">Custom</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={999}
+                    placeholder="Enter target score"
+                    value={customScore}
+                    onFocus={() => setSelectedDifficulty("custom")}
+                    onChange={(e) => {
+                      setSelectedDifficulty("custom");
+                      setCustomScore(e.target.value);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex-1 bg-background border rounded px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </button>
+              </div>
+
+              <p className="text-sm text-muted-foreground text-center">
+                {activeScore >= 1
+                  ? `First player to reach ${activeScore} points wins`
+                  : "Enter a valid target score"}
+              </p>
+
+              {/* Bot Toggle */}
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setBotEnabled(!botEnabled)}
+                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                    botEnabled
+                      ? "border-primary bg-primary/10 shadow-md"
+                      : "border-border hover:border-primary/50 hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-sm font-bold">Play vs Bot</span>
+                  <span className={`text-xs px-2 py-1 rounded ${botEnabled ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                    {botEnabled ? "ON" : "OFF"}
+                  </span>
+                </button>
+
+                {botEnabled && (
+                  <div className="flex gap-2">
+                    {BOT_DIFFICULTIES.map((diff) => (
+                      <button
+                        key={diff.value}
+                        type="button"
+                        onClick={() => setBotDifficulty(diff.value)}
+                        className={`flex-1 flex flex-col items-center gap-0.5 p-2 rounded-lg border-2 transition-all ${
+                          botDifficulty === diff.value
+                            ? "border-primary bg-primary/10 shadow-md"
+                            : "border-border hover:border-primary/50 hover:bg-muted"
+                        }`}
+                      >
+                        <span className="text-sm font-bold">{diff.label}</span>
+                        <span className="text-[10px] text-muted-foreground">{diff.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Scoring info */}
+              <div className="bg-muted rounded-lg p-3 text-sm space-y-2">
+                <div className="font-semibold">Scoring Rules:</div>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>+1 point for each space claimed</li>
+                  <li>+1 bonus for each space in a completed connection between prime numbers</li>
+                  <li>Connections can be horizontal, vertical, or diagonal</li>
+                </ul>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          {onPlayOnline && (
+          {!isMultiplayer && onPlayOnline && (
             <Button variant="outline" onClick={onPlayOnline}>
               Play Online
             </Button>
