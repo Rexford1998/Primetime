@@ -130,6 +130,7 @@ export function PrimeFactorGame() {
   const [botEnabled, setBotEnabled] = useState(false);
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>("medium");
   const pendingPersistActionRef = useRef<string | null>(null);
+  const gameStateVersionRef = useRef<number>(-1);
 
   useEffect(() => {
     authFlowLog("state snapshot", {
@@ -171,6 +172,7 @@ export function PrimeFactorGame() {
 
   useEffect(() => {
     if (!sessionId) {
+      gameStateVersionRef.current = -1;
       if (sessionLocalPlayerId !== null) {
         setSessionLocalPlayerId(null);
       }
@@ -282,6 +284,15 @@ export function PrimeFactorGame() {
 
   // Get current player's dice and opponent's dice
   const currentPlayerDice = gameState.currentPlayer === 0 ? player1Dice : player2Dice;
+  const localPlayerIndex = useMemo(() => {
+    if (!isMultiplayer) return gameState.currentPlayer;
+    if (!sessionLocalPlayerId) return null;
+    if (sessionLocalPlayerId === sessionPlayer1Id) return 0;
+    if (sessionLocalPlayerId === sessionPlayer2Id) return 1;
+    return null;
+  }, [gameState.currentPlayer, isMultiplayer, sessionLocalPlayerId, sessionPlayer1Id, sessionPlayer2Id]);
+  const isLocalPlayersTurn =
+    !isMultiplayer || (localPlayerIndex !== null && localPlayerIndex === gameState.currentPlayer);
 
   // Calculate valid moves based on selected dice
   const validMoves = useMemo(() => {
@@ -468,7 +479,8 @@ export function PrimeFactorGame() {
 
   // Handle die click
   const handleDieClick = useCallback((die: Die) => {
-    if (gameState.phase !== "playing") return;
+    if (gameState.phase !== "playing" || !isLocalPlayersTurn) return;
+    if (!currentPlayerDice.some((currentDie) => currentDie.id === die.id)) return;
     
     setGameState((prev) => {
       const isSelected = prev.selectedDice.includes(die.id);
@@ -479,13 +491,14 @@ export function PrimeFactorGame() {
           : [...prev.selectedDice, die.id],
       };
     });
-  }, [gameState.phase]);
+  }, [currentPlayerDice, gameState.phase, isLocalPlayersTurn]);
 
   // Handle space click
   const handleSpaceClick = useCallback((space: BoardSpace) => {
+    if (isMultiplayer && !isLocalPlayersTurn) return;
     if (space.claimed) return;
     setSelectedSpace(space);
-  }, []);
+  }, [isLocalPlayersTurn, isMultiplayer]);
 
   // Check if selected dice match the space
   const canClaimSpace = useMemo(() => {
@@ -520,6 +533,8 @@ export function PrimeFactorGame() {
     pendingPersistActionRef.current = null;
 
     const saveState = async () => {
+      const nextSyncVersion = gameStateVersionRef.current + 1;
+
       try {
         await updateGameState(sessionId, sessionLocalPlayerId, {
           board: gameState.board,
@@ -536,8 +551,9 @@ export function PrimeFactorGame() {
           bonusHistory,
           completedTracks,
           actionType,
-          timestamp: Date.now(),
+          syncVersion: nextSyncVersion,
         }, gameState.roundNumber);
+        gameStateVersionRef.current = nextSyncVersion;
       } catch (error) {
         console.error('Error persisting game state:', error);
       }
@@ -556,7 +572,20 @@ export function PrimeFactorGame() {
     completedTracks,
   ]);
 
+  const getSavedStateVersion = useCallback((savedState: Record<string, any>) => {
+    return typeof savedState.syncVersion === "number" ? savedState.syncVersion : -1;
+  }, []);
+
   const applySavedGameState = useCallback((savedState: Record<string, any>) => {
+    const incomingVersion = getSavedStateVersion(savedState);
+    if (incomingVersion >= 0 && incomingVersion < gameStateVersionRef.current) {
+      return;
+    }
+
+    if (incomingVersion >= 0) {
+      gameStateVersionRef.current = incomingVersion;
+    }
+
     setGameState((prev) => ({
       ...prev,
       board: Array.isArray(savedState.board) ? savedState.board : prev.board,
@@ -585,7 +614,20 @@ export function PrimeFactorGame() {
     setBonusHistory(Array.isArray(savedState.bonusHistory) ? savedState.bonusHistory : []);
     setCompletedTracks(Array.isArray(savedState.completedTracks) ? savedState.completedTracks : []);
     setSelectedSpace(null);
-  }, []);
+  }, [getSavedStateVersion]);
+
+  const getLatestGameStateRecord = useCallback((states: Array<Record<string, any>>) => {
+    return [...states].sort((a, b) => {
+      const aVersion = getSavedStateVersion(a.game_data || {});
+      const bVersion = getSavedStateVersion(b.game_data || {});
+
+      if (aVersion !== bVersion) {
+        return bVersion - aVersion;
+      }
+
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    })[0];
+  }, [getSavedStateVersion]);
 
   const loadLatestSavedGameState = useCallback(async (activeSessionId: string) => {
     const states = await getGameStates(activeSessionId);
@@ -593,11 +635,7 @@ export function PrimeFactorGame() {
       return false;
     }
 
-    const latestState = [...states].sort((a, b) => {
-      const aTime = Number(a.game_data?.timestamp ?? 0) || new Date(a.updated_at).getTime();
-      const bTime = Number(b.game_data?.timestamp ?? 0) || new Date(b.updated_at).getTime();
-      return bTime - aTime;
-    })[0];
+    const latestState = getLatestGameStateRecord(states);
 
     if (!latestState?.game_data) {
       return false;
@@ -605,7 +643,7 @@ export function PrimeFactorGame() {
 
     applySavedGameState(latestState.game_data);
     return true;
-  }, [applySavedGameState]);
+  }, [applySavedGameState, getLatestGameStateRecord]);
 
   // Start game with target score
   const handleStartGame = useCallback(async (targetScore: number, enableBot: boolean, difficulty: BotDifficulty) => {
@@ -663,14 +701,14 @@ export function PrimeFactorGame() {
 
     void loadLatestSavedGameState(sessionId);
 
+    const pollInterval = setInterval(() => {
+      void loadLatestSavedGameState(sessionId);
+    }, 1500);
+
     const channel = subscribeToGameState(sessionId, (states) => {
       if (cancelled || !states.length) return;
 
-      const latestState = [...states].sort((a, b) => {
-        const aTime = Number(a.game_data?.timestamp ?? 0) || new Date(a.updated_at).getTime();
-        const bTime = Number(b.game_data?.timestamp ?? 0) || new Date(b.updated_at).getTime();
-        return bTime - aTime;
-      })[0];
+      const latestState = getLatestGameStateRecord(states);
 
       if (latestState?.game_data) {
         applySavedGameState(latestState.game_data);
@@ -679,9 +717,10 @@ export function PrimeFactorGame() {
 
     return () => {
       cancelled = true;
+      clearInterval(pollInterval);
       channel.unsubscribe();
     };
-  }, [applySavedGameState, isMultiplayer, loadLatestSavedGameState, sessionId, waitingForOpponent]);
+  }, [applySavedGameState, getLatestGameStateRecord, isMultiplayer, loadLatestSavedGameState, sessionId, waitingForOpponent]);
 
   // Set current turn when game starts in multiplayer
   useEffect(() => {
@@ -789,6 +828,7 @@ export function PrimeFactorGame() {
           authUser?.id || userId || playerId || undefined
         );
         if (session) {
+          gameStateVersionRef.current = -1;
           setSessionCode(session.session_code);
           setSessionId(session.id);
           setSessionPlayer1Id(session.player_1_id);
@@ -826,6 +866,7 @@ export function PrimeFactorGame() {
     try {
       const session = await getGameSessionById(resumeSessionId);
       if (session) {
+        gameStateVersionRef.current = -1;
         const activePlayerId = userId || playerId;
         const isCurrentUserPlayerOne = activePlayerId === session.player_1_id;
         const resolvedLocalPlayerId = isCurrentUserPlayerOne
@@ -967,6 +1008,7 @@ export function PrimeFactorGame() {
           authUser?.id || userId || playerId || undefined
         );
         if (session) {
+          gameStateVersionRef.current = -1;
           setSessionCode(session.session_code);
           setSessionId(session.id);
           setSessionPlayer1Id(session.player_1_id);
@@ -1446,6 +1488,7 @@ export function PrimeFactorGame() {
 
   // New game
   const handleNewGame = useCallback(() => {
+    gameStateVersionRef.current = -1;
     setSessionLocalPlayerId(null);
     setShowSetup(true);
   }, []);
@@ -1660,7 +1703,11 @@ export function PrimeFactorGame() {
                     selectedDice={gameState.currentPlayer === 0 ? gameState.selectedDice : []}
                     onDieClick={handleDieClick}
                     onReorder={handleReorderPlayer1Dice}
-                    disabled={gameState.phase !== "playing" || gameState.currentPlayer !== 0}
+                    disabled={
+                      gameState.phase !== "playing" ||
+                      gameState.currentPlayer !== 0 ||
+                      (isMultiplayer && localPlayerIndex !== 0)
+                    }
                     skins={diceSkins}
                     playerName={gameState.players[0].name}
                   />
@@ -1674,7 +1721,11 @@ export function PrimeFactorGame() {
                       selectedDice={gameState.currentPlayer === 1 ? gameState.selectedDice : []}
                       onDieClick={handleDieClick}
                       onReorder={handleReorderPlayer2Dice}
-                      disabled={gameState.phase !== "playing" || gameState.currentPlayer !== 1}
+                      disabled={
+                        gameState.phase !== "playing" ||
+                        gameState.currentPlayer !== 1 ||
+                        (isMultiplayer && localPlayerIndex !== 1)
+                      }
                       skins={diceSkins}
                       playerName={gameState.players[1].name}
                       hideValues={gameState.currentPlayer === 0 && gameState.roundNumber === 1 && player1Dice.length === 12}
@@ -1714,8 +1765,8 @@ export function PrimeFactorGame() {
             
             <GameControls
               phase={gameState.phase}
-              canRoll={!diceRolled && gameState.phase === "rolling"}
-              canEndTurn={gameState.phase === "playing"}
+              canRoll={!diceRolled && gameState.phase === "rolling" && isLocalPlayersTurn}
+              canEndTurn={gameState.phase === "playing" && isLocalPlayersTurn}
               hasValidMoves={hasAnyValidMove}
               onRoll={handleRoll}
               onEndTurn={handleEndTurn}
