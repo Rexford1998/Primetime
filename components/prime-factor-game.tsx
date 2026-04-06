@@ -561,6 +561,26 @@ export function PrimeFactorGame() {
   useEffect(() => {
     if (!waitingForOpponent || !sessionCode) return;
     let cancelled = false;
+    
+    // Function to check for opponent join
+    const checkForOpponent = async () => {
+      if (cancelled) return;
+      try {
+        const session = await getGameSession(sessionCode);
+        if (session && session.player_2_id) {
+          setOpponentHasJoined(true);
+          setOpponentName(session.player_2_name || "Opponent");
+        }
+      } catch (err) {
+        console.error('Error polling session:', err);
+      }
+    };
+    
+    // Check immediately and then every 1.5 seconds
+    checkForOpponent();
+    const pollInterval = setInterval(checkForOpponent, 1500);
+
+    // Also set up real-time subscription
     const channel = subscribeToSession(sessionCode, (session) => {
       if (cancelled || !session) return;
       setSessionId(session.id);
@@ -577,6 +597,7 @@ export function PrimeFactorGame() {
     return () => {
       cancelled = true;
       channel.unsubscribe();
+      clearInterval(pollInterval);
     };
   }, [waitingForOpponent, sessionCode]);
 
