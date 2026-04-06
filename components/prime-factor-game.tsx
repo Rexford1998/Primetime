@@ -603,7 +603,6 @@ export function PrimeFactorGame() {
     );
     setBonusHistory(Array.isArray(savedState.bonusHistory) ? savedState.bonusHistory : []);
     setCompletedTracks(Array.isArray(savedState.completedTracks) ? savedState.completedTracks : []);
-    setSelectedSpace(null);
   }, [getSavedStateVersion]);
 
   const getLatestGameStateRecord = useCallback((states: Array<Record<string, any>>) => {
@@ -701,7 +700,10 @@ export function PrimeFactorGame() {
     void loadLatestSavedGameState(sessionId);
 
     const pollInterval = setInterval(() => {
-      void loadLatestSavedGameState(sessionId);
+      // Skip polling when it's your turn to avoid interfering with local interactions
+      if (!isLocalPlayersTurn) {
+        void loadLatestSavedGameState(sessionId);
+      }
     }, 1500);
 
     const channel = subscribeToGameState(sessionId, (states) => {
@@ -1529,19 +1531,11 @@ export function PrimeFactorGame() {
     return Array.from(set);
   }, [validMoves, possibleMoveHighlights]);
 
-  const showPreGameSetupPage = showModeSelect || showLobby || showGameSetup;
+  const showPreGameSetupPage = showModeSelect || showGameSetup;
 
   if (showPreGameSetupPage) {
-    const setupTitle = showGameSetup
-      ? "Create a Multiplayer Lobby"
-      : showLobby
-        ? "Find a Multiplayer Match"
-        : "Set Up Your Game";
-    const setupDescription = showGameSetup
-      ? "Choose how this match should run before you open the lobby."
-      : showLobby
-        ? "Browse live rooms, switch game types, or spin up a new match."
-        : "Pick the way you want to play, then we’ll move you straight into the right experience.";
+    const setupTitle = showGameSetup ? "Create a Multiplayer Lobby" : "Set Up Your Game";
+    const setupDescription = showGameSetup ? "Choose how this match should run before you open the lobby." : "Pick the way you want to play, then we'll move you straight into the right experience.";
 
     return (
       <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_35%),linear-gradient(180deg,#f8fbff_0%,#eef5ff_48%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.2),_transparent_30%),linear-gradient(180deg,#0f172a_0%,#111827_45%,#030712_100%)]">
@@ -1567,59 +1561,6 @@ export function PrimeFactorGame() {
                   onViewActiveGames={() => setShowActiveGames(true)}
                 />
               )}
-
-              {showLobby && (
-                <div className="space-y-6">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="gap-2 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
-                    onClick={() => {
-                      setShowLobby(false);
-                      setShowModeSelect(true);
-                    }}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to game modes
-                  </Button>
-
-                  <GameLobby
-                    gameType={selectedGameType}
-                    onSelectLobby={handleSelectLobby}
-                    onCreateNew={handleCreateNewLobby}
-                    isOpen={showLobby}
-                    onChangeGameType={(type) => setSelectedGameType(type)}
-                  />
-                </div>
-              )}
-
-              {showGameSetup && (
-                <div className="space-y-6">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="gap-2 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
-                    onClick={() => {
-                      setShowGameSetup(false);
-                      setShowLobby(true);
-                    }}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to lobby browser
-                  </Button>
-
-                  <GameSetupForm
-                    gameType={selectedGameType}
-                    defaultPlayerName={authUser?.playerName || playerNames[0]}
-                    onCreateLobby={handleGameSetupSubmit}
-                    onCancel={() => {
-                      setShowGameSetup(false);
-                      setShowLobby(true);
-                    }}
-                    isLoading={lobbyLoading}
-                  />
-                </div>
-              )}
             </div>
 
             <aside className="rounded-[28px] border border-slate-200/70 bg-slate-950 p-6 text-slate-50 shadow-[0_24px_80px_-28px_rgba(15,23,42,0.55)] dark:border-slate-700">
@@ -1628,29 +1569,6 @@ export function PrimeFactorGame() {
                 <span className="text-xs font-semibold uppercase tracking-[0.28em]">
                   Setup Flow
                 </span>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-sm font-semibold">
-                    {authUser?.playerName ? "Signed in as" : "Current player"}
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-white">
-                    {authUser?.playerName || playerNames[0] || "Player 1"}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-300">
-                    Your setup now lives on its own screen, so you can focus before the board appears.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 p-4">
-                  <p className="text-sm font-semibold text-sky-200">What happens next</p>
-                  <ul className="mt-3 space-y-3 text-sm text-slate-200">
-                    <li>Choose bot, local play, or multiplayer.</li>
-                    <li>For multiplayer, browse live rooms or create one with your signed-in profile.</li>
-                    <li>Once setup is done, you drop into the game instead of stacking dialogs on top of it.</li>
-                  </ul>
-                </div>
               </div>
             </aside>
           </div>
