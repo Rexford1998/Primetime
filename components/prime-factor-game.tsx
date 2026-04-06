@@ -569,9 +569,9 @@ export function PrimeFactorGame() {
     }
 
     setGameState((prev) => {
-      // Only update selectedDice if the current player changed (turn switch)
-      // Otherwise, preserve local selection
-      const shouldClearSelection = 
+      // Only clear selectedDice when the current player actually changes
+      // Never sync selectedDice from database since it's local-only state
+      const playerChanged = 
         typeof savedState.currentPlayer === "number" && 
         savedState.currentPlayer !== prev.currentPlayer;
       
@@ -584,7 +584,7 @@ export function PrimeFactorGame() {
         phase: savedState.phase || prev.phase,
         roundNumber:
           typeof savedState.roundNumber === "number" ? savedState.roundNumber : prev.roundNumber,
-        selectedDice: shouldClearSelection ? [] : (Array.isArray(savedState.selectedDice) ? savedState.selectedDice : prev.selectedDice),
+        selectedDice: playerChanged ? [] : prev.selectedDice,
         message: typeof savedState.message === "string" ? savedState.message : prev.message,
         targetScore:
           typeof savedState.targetScore === "number" ? savedState.targetScore : prev.targetScore,
