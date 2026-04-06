@@ -2,6 +2,13 @@ import { supabase } from './supabase-multiplayer';
 
 const authLog = (...args: any[]) => console.debug('[auth]', ...args);
 
+function cachePlayerIdentity(playerName: string, email: string, id: string) {
+  if (typeof window === 'undefined') return;
+  if (playerName) localStorage.setItem('pf_player_name', playerName);
+  if (email) localStorage.setItem('pf_player_email', email);
+  if (id) localStorage.setItem('pf_player_id', id);
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -100,6 +107,8 @@ export async function signUp(
       authLog('signUp:profile-upserted', authData.user.id);
     }
 
+    cachePlayerIdentity(playerName, authData.user.email || '', authData.user.id);
+
     return {
       success: true,
       user: {
@@ -174,6 +183,7 @@ export async function signIn(
     }
 
     const playerName = playerData?.player_name || authData.user.user_metadata?.player_name || '';
+    cachePlayerIdentity(playerName, authData.user.email || '', authData.user.id);
 
     return {
       success: true,
@@ -287,6 +297,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       email: user.email || '',
       playerName,
     });
+    cachePlayerIdentity(playerName, user.email || '', user.id);
     return {
       id: user.id,
       email: user.email || '',

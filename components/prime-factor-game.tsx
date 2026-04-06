@@ -1650,7 +1650,9 @@ export function PrimeFactorGame() {
 
               <div className="mt-6 space-y-4">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-sm font-semibold">Signed in as</p>
+                  <p className="text-sm font-semibold">
+                    {authUser?.playerName ? "Signed in as" : "Current player"}
+                  </p>
                   <p className="mt-1 text-2xl font-bold text-white">
                     {authUser?.playerName || playerNames[0] || "Player 1"}
                   </p>

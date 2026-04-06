@@ -12,9 +12,15 @@ const headerLog = (...args: any[]) => console.debug("[AppHeader]", ...args);
 export function AppHeader() {
   const { user, isAuthenticated, loading } = usePlayerProfile();
   const [showAuth, setShowAuth] = useState(false);
-  const showLoadingPlaceholder = loading && !user && !showAuth;
+  const [cachedPlayerName, setCachedPlayerName] = useState<string | null>(null);
   const userId = user?.id ?? null;
   const playerName = user?.playerName ?? null;
+  const displayPlayerName = playerName || cachedPlayerName;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setCachedPlayerName(localStorage.getItem("pf_player_name"));
+  }, []);
 
   useEffect(() => {
     headerLog("state snapshot", {
@@ -23,18 +29,9 @@ export function AppHeader() {
       showAuth,
       userId,
       playerName,
+      cachedPlayerName,
     });
-  }, [isAuthenticated, loading, playerName, showAuth, userId]);
-
-  useEffect(() => {
-    if (showLoadingPlaceholder) {
-      headerLog("render: loading placeholder visible", {
-        userId,
-        playerName,
-        isAuthenticated,
-      });
-    }
-  }, [isAuthenticated, playerName, showLoadingPlaceholder, userId]);
+  }, [cachedPlayerName, isAuthenticated, loading, playerName, showAuth, userId]);
 
   const handleLogout = async () => {
     headerLog("logout:start", {
@@ -44,6 +41,7 @@ export function AppHeader() {
     await supabase.auth.signOut();
     localStorage.removeItem("pf_player_name");
     localStorage.removeItem("pf_player_email");
+    localStorage.removeItem("pf_player_id");
     headerLog("logout:complete -> reloading page");
     window.location.reload();
   };
@@ -55,9 +53,7 @@ export function AppHeader() {
           <div className="font-bold text-lg">Prime Factorization Game</div>
 
           <div className="flex items-center gap-3">
-            {showLoadingPlaceholder ? (
-              <div className="h-8 w-24 bg-muted rounded animate-pulse" />
-            ) : isAuthenticated && user ? (
+            {isAuthenticated && user ? (
               <>
                 <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10">
                   <User className="h-4 w-4 text-primary" />
@@ -75,6 +71,11 @@ export function AppHeader() {
                   Sign Out
                 </Button>
               </>
+            ) : displayPlayerName ? (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/60 text-muted-foreground">
+                <User className="h-4 w-4" />
+                <span className="text-sm font-medium">{displayPlayerName}</span>
+              </div>
             ) : (
               <Button
                 size="sm"
@@ -99,6 +100,9 @@ export function AppHeader() {
         }}
         onAuthed={() => {
           headerLog("auth dialog onAuthed -> closing without reload");
+          if (typeof window !== "undefined") {
+            setCachedPlayerName(localStorage.getItem("pf_player_name"));
+          }
           setShowAuth(false);
         }}
       />
