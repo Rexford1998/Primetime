@@ -1531,24 +1531,10 @@ export function PrimeFactorGame() {
   const showPreGameSetupPage = showModeSelect || showGameSetup;
 
   if (showPreGameSetupPage) {
-    const setupTitle = showGameSetup ? "Create a Multiplayer Lobby" : "Set Up Your Game";
-    const setupDescription = showGameSetup ? "Choose how this match should run before you open the lobby." : "Pick the way you want to play, then we'll move you straight into the right experience.";
-
     return (
       <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_35%),linear-gradient(180deg,#f8fbff_0%,#eef5ff_48%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.2),_transparent_30%),linear-gradient(180deg,#0f172a_0%,#111827_45%,#030712_100%)]">
         <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8">
           <div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                {setupTitle}
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                {setupDescription}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="rounded-[28px] border border-slate-200/70 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(37,99,235,0.35)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
               {showModeSelect && (
                 <MultiplayerModeSelector
@@ -1559,17 +1545,7 @@ export function PrimeFactorGame() {
                 />
               )}
             </div>
-
-            <aside className="rounded-[28px] border border-slate-200/70 bg-slate-950 p-6 text-slate-50 shadow-[0_24px_80px_-28px_rgba(15,23,42,0.55)] dark:border-slate-700">
-              <div className="flex items-center gap-2 text-sky-300">
-                <Sparkles className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase tracking-[0.28em]">
-                  Setup Flow
-                </span>
-              </div>
-            </aside>
           </div>
-        </div>
 
         <AuthDialog
           open={showAuth}
@@ -1589,6 +1565,7 @@ export function PrimeFactorGame() {
           userId={userId}
           onResumeGame={handleResumeGame}
         />
+        </div>
       </div>
     );
   }
