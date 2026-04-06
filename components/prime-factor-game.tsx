@@ -129,7 +129,6 @@ export function PrimeFactorGame() {
   // Bot settings
   const [botEnabled, setBotEnabled] = useState(false);
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>("medium");
-  const pendingPersistActionRef = useRef<string | null>(null);
   const gameStateVersionRef = useRef<number>(-1);
 
   useEffect(() => {
@@ -521,55 +520,64 @@ export function PrimeFactorGame() {
   }, [selectedSpace, gameState.selectedDice, currentPlayerDice]);
 
   // Persist game state to database for multiplayer
-  const persistGameState = useCallback((actionType: string) => {
+  const persistGameState = useCallback(async (
+    actionType: string,
+    overrides?: {
+      gameState?: GameState;
+      player1Dice?: Die[];
+      player2Dice?: Die[];
+      diceRolled?: boolean;
+      bonusHistory?: Array<{
+        player: string;
+        space: number;
+        round: number;
+        breakdown: BonusBreakdown[];
+      }>;
+      completedTracks?: CompletedTrack[];
+    }
+  ) => {
     if (!isMultiplayer || !sessionId || !sessionLocalPlayerId) return;
-    pendingPersistActionRef.current = actionType;
-  }, [isMultiplayer, sessionId, sessionLocalPlayerId]);
 
-  useEffect(() => {
-    const actionType = pendingPersistActionRef.current;
-    if (!actionType || !isMultiplayer || !sessionId || !sessionLocalPlayerId) return;
+    const nextState = overrides?.gameState ?? gameState;
+    const nextPlayer1Dice = overrides?.player1Dice ?? player1Dice;
+    const nextPlayer2Dice = overrides?.player2Dice ?? player2Dice;
+    const nextDiceRolled = overrides?.diceRolled ?? diceRolled;
+    const nextBonusHistory = overrides?.bonusHistory ?? bonusHistory;
+    const nextCompletedTracks = overrides?.completedTracks ?? completedTracks;
+    const nextSyncVersion = gameStateVersionRef.current + 1;
 
-    pendingPersistActionRef.current = null;
-
-    const saveState = async () => {
-      const nextSyncVersion = gameStateVersionRef.current + 1;
-
-      try {
-        await updateGameState(sessionId, sessionLocalPlayerId, {
-          board: gameState.board,
-          players: gameState.players,
-          currentPlayer: gameState.currentPlayer,
-          phase: gameState.phase,
-          roundNumber: gameState.roundNumber,
-          selectedDice: gameState.selectedDice,
-          message: gameState.message,
-          targetScore: gameState.targetScore,
-          player1Dice,
-          player2Dice,
-          diceRolled,
-          bonusHistory,
-          completedTracks,
-          actionType,
-          syncVersion: nextSyncVersion,
-        }, gameState.roundNumber);
-        gameStateVersionRef.current = nextSyncVersion;
-      } catch (error) {
-        console.error('Error persisting game state:', error);
-      }
-    };
-
-    void saveState();
+    try {
+      await updateGameState(sessionId, sessionLocalPlayerId, {
+        board: nextState.board,
+        players: nextState.players,
+        currentPlayer: nextState.currentPlayer,
+        phase: nextState.phase,
+        roundNumber: nextState.roundNumber,
+        selectedDice: nextState.selectedDice,
+        message: nextState.message,
+        targetScore: nextState.targetScore,
+        player1Dice: nextPlayer1Dice,
+        player2Dice: nextPlayer2Dice,
+        diceRolled: nextDiceRolled,
+        bonusHistory: nextBonusHistory,
+        completedTracks: nextCompletedTracks,
+        actionType,
+        syncVersion: nextSyncVersion,
+      }, nextState.roundNumber);
+      gameStateVersionRef.current = nextSyncVersion;
+    } catch (error) {
+      console.error('Error persisting game state:', error);
+    }
   }, [
-    isMultiplayer,
-    sessionId,
-    sessionLocalPlayerId,
-    gameState,
-    player1Dice,
-    player2Dice,
-    diceRolled,
     bonusHistory,
     completedTracks,
+    diceRolled,
+    gameState,
+    isMultiplayer,
+    player1Dice,
+    player2Dice,
+    sessionId,
+    sessionLocalPlayerId,
   ]);
 
   const getSavedStateVersion = useCallback((savedState: Record<string, any>) => {
@@ -680,7 +688,16 @@ export function PrimeFactorGame() {
     setBonusHistory([]);
     setCompletedTracks([]);
 
-    if (isMultiplayer) persistGameState('start');
+    if (isMultiplayer) {
+      await persistGameState('start', {
+        gameState: initial,
+        player1Dice: [],
+        player2Dice: [],
+        diceRolled: false,
+        bonusHistory: [],
+        completedTracks: [],
+      });
+    }
   }, [isMultiplayer, opponentName, persistGameState, playerNames, sessionId]);
 
   // Sync player names to game state when they change
@@ -1043,20 +1060,25 @@ export function PrimeFactorGame() {
 
     const dice1 = rollDice().map((d, i) => ({ ...d, id: `p1-${i}` }));
     const dice2 = rollDice().map((d, i) => ({ ...d, id: `p2-${i}` }));
+    const nextGameState = {
+      ...gameState,
+      phase: "playing" as const,
+      selectedDice: [],
+      message: `${gameState.players[gameState.currentPlayer].name}, select dice to match a space's factorization!`,
+    };
     
     setPlayer1Dice(sortDice(dice1));
     setPlayer2Dice(sortDice(dice2));
     setDiceRolled(true);
-    
-    setGameState((prev) => ({
-      ...prev,
-      phase: "playing",
-      selectedDice: [],
-      message: `${prev.players[prev.currentPlayer].name}, select dice to match a space's factorization!`,
-    }));
+    setGameState(nextGameState);
 
-    persistGameState('roll');
-  }, [isMultiplayer, sessionId, sessionLocalPlayerId, persistGameState]);
+    void persistGameState('roll', {
+      gameState: nextGameState,
+      player1Dice: sortDice(dice1),
+      player2Dice: sortDice(dice2),
+      diceRolled: true,
+    });
+  }, [gameState, isMultiplayer, sessionId, sessionLocalPlayerId, persistGameState]);
 
   // Claim a space
   const handleClaim = useCallback(async () => {
@@ -1097,118 +1119,135 @@ export function PrimeFactorGame() {
         diceToRemove.push(wildMatch.id);
       }
     }
-    
-    if (gameState.currentPlayer === 0) {
-      setPlayer1Dice((prev) => prev.filter((d) => !diceToRemove.includes(d.id)));
-    } else {
-      setPlayer2Dice((prev) => prev.filter((d) => !diceToRemove.includes(d.id)));
-    }
-    
-    setGameState((prev) => {
-      const newBoard = prev.board.map((space) =>
-        space.number === selectedSpace.number
-          ? { ...space, owner: prev.currentPlayer, claimed: true }
-          : space
-      );
-      
-      const { bonusPoints: bonusGained, breakdown } = checkForNewBonus(newBoard, selectedSpace.number);
-      
-      if (breakdown.length > 0) {
-        setBonusHistory((prevHistory) => [
-          ...prevHistory,
-          {
-            player: prev.players[prev.currentPlayer].name,
-            space: selectedSpace.number,
-            round: prev.roundNumber,
-            breakdown,
-          },
-        ]);
-        
-        const playerColor = PLAYER_COLORS[prev.currentPlayer];
-        const newTracks: CompletedTrack[] = breakdown.map((b, i) => ({
-          id: `track-${Date.now()}-${i}`,
-          primeStart: b.primeStart,
-          primeEnd: b.primeEnd,
-          spaces: b.spaces,
-          direction: b.direction,
-          playerColor,
-          animating: true,
-        }));
-        
-        setCompletedTracks((prev) => [...prev, ...newTracks]);
-        
-        setTimeout(() => {
-          setCompletedTracks((prev) =>
-            prev.map((t) =>
-              newTracks.some((nt) => nt.id === t.id)
-                ? { ...t, animating: false }
-                : t
-            )
-          );
-        }, 3500);
-      }
-      
-      const newPlayers = prev.players.map((player, idx) => {
-        if (idx === prev.currentPlayer) {
-          return {
-            ...player,
-            score: player.score + 1,
-            bonusPoints: player.bonusPoints + bonusGained,
-          };
-        }
-        return player;
-      });
-      
-      spawnPointAnimation(pos.x, pos.y, 1, false);
-      
-      if (bonusGained > 0) {
-        setTimeout(() => {
-          spawnFireworks(pos.x, pos.y);
-          spawnPointAnimation(pos.x - 30, pos.y - 30, bonusGained, true);
-        }, 300);
-      }
-      
-      const totalScore =
-        newPlayers[prev.currentPlayer].score +
-        newPlayers[prev.currentPlayer].bonusPoints;
-      
-      if (totalScore >= prev.targetScore) {
-        if (pos) {
-          for (let i = 0; i < 5; i++) {
-            setTimeout(() => {
-              const offsetX = (Math.random() - 0.5) * 200;
-              const offsetY = (Math.random() - 0.5) * 200;
-              spawnFireworks(pos.x + offsetX, pos.y + offsetY);
-            }, i * 200);
-          }
-        }
-        
+
+    const currentPlayerIndex = gameState.currentPlayer;
+    const nextPlayer1Dice =
+      currentPlayerIndex === 0
+        ? player1Dice.filter((d) => !diceToRemove.includes(d.id))
+        : player1Dice;
+    const nextPlayer2Dice =
+      currentPlayerIndex === 1
+        ? player2Dice.filter((d) => !diceToRemove.includes(d.id))
+        : player2Dice;
+
+    const newBoard = gameState.board.map((space) =>
+      space.number === selectedSpace.number
+        ? { ...space, owner: currentPlayerIndex, claimed: true }
+        : space
+    );
+
+    const { bonusPoints: bonusGained, breakdown } = checkForNewBonus(newBoard, selectedSpace.number);
+
+    const nextBonusHistory =
+      breakdown.length > 0
+        ? [
+            ...bonusHistory,
+            {
+              player: gameState.players[currentPlayerIndex].name,
+              space: selectedSpace.number,
+              round: gameState.roundNumber,
+              breakdown,
+            },
+          ]
+        : bonusHistory;
+
+    const playerColor = PLAYER_COLORS[currentPlayerIndex];
+    const newTracks: CompletedTrack[] = breakdown.map((b, i) => ({
+      id: `track-${Date.now()}-${i}`,
+      primeStart: b.primeStart,
+      primeEnd: b.primeEnd,
+      spaces: b.spaces,
+      direction: b.direction,
+      playerColor,
+      animating: true,
+    }));
+    const nextCompletedTracks =
+      breakdown.length > 0 ? [...completedTracks, ...newTracks] : completedTracks;
+
+    const newPlayers = gameState.players.map((player, idx) => {
+      if (idx === currentPlayerIndex) {
         return {
-          ...prev,
-          board: newBoard,
-          players: newPlayers,
-          selectedDice: [],
-          phase: "gameOver",
-          message: `${newPlayers[prev.currentPlayer].name} wins with ${totalScore} points!`,
+          ...player,
+          score: player.score + 1,
+          bonusPoints: player.bonusPoints + bonusGained,
         };
       }
-      
-      const nextPlayer = (prev.currentPlayer + 1) % prev.players.length;
-      
-      const updatedState = {
-        ...prev,
-        board: newBoard,
-        players: newPlayers,
-        currentPlayer: (prev.currentPlayer + 1) % prev.players.length,
-        selectedDice: [],
-        message: `Claimed space ${selectedSpace.number}! ${newPlayers[(prev.currentPlayer + 1) % prev.players.length].name}'s turn.`,
-      };
-      return updatedState;
+      return player;
     });
-    
+
+    spawnPointAnimation(pos.x, pos.y, 1, false);
+
+    if (bonusGained > 0) {
+      setTimeout(() => {
+        spawnFireworks(pos.x, pos.y);
+        spawnPointAnimation(pos.x - 30, pos.y - 30, bonusGained, true);
+      }, 300);
+    }
+
+    const totalScore =
+      newPlayers[currentPlayerIndex].score +
+      newPlayers[currentPlayerIndex].bonusPoints;
+
+    const nextGameState =
+      totalScore >= gameState.targetScore
+        ? {
+            ...gameState,
+            board: newBoard,
+            players: newPlayers,
+            selectedDice: [],
+            phase: "gameOver" as const,
+            message: `${newPlayers[currentPlayerIndex].name} wins with ${totalScore} points!`,
+          }
+        : {
+            ...gameState,
+            board: newBoard,
+            players: newPlayers,
+            currentPlayer: (currentPlayerIndex + 1) % gameState.players.length,
+            selectedDice: [],
+            message: `Claimed space ${selectedSpace.number}! ${newPlayers[(currentPlayerIndex + 1) % gameState.players.length].name}'s turn.`,
+          };
+
+    if (currentPlayerIndex === 0) {
+      setPlayer1Dice(nextPlayer1Dice);
+    } else {
+      setPlayer2Dice(nextPlayer2Dice);
+    }
+
+    if (breakdown.length > 0) {
+      setBonusHistory(nextBonusHistory);
+      setCompletedTracks(nextCompletedTracks);
+      setTimeout(() => {
+        setCompletedTracks((prev) =>
+          prev.map((t) =>
+            newTracks.some((nt) => nt.id === t.id)
+              ? { ...t, animating: false }
+              : t
+          )
+        );
+      }, 3500);
+    }
+
+    if (totalScore >= gameState.targetScore && pos) {
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+          const offsetX = (Math.random() - 0.5) * 200;
+          const offsetY = (Math.random() - 0.5) * 200;
+          spawnFireworks(pos.x + offsetX, pos.y + offsetY);
+        }, i * 200);
+      }
+    }
+
+    setGameState(nextGameState);
     setSelectedSpace(null);
-    persistGameState('claim');
-  }, [selectedSpace, canClaimSpace, gameState.selectedDice, gameState.currentPlayer, getAnimationPosition, spawnPointAnimation, spawnFireworks, isMultiplayer, sessionId, sessionLocalPlayerId, persistGameState]);
+    void persistGameState('claim', {
+      gameState: nextGameState,
+      player1Dice: nextPlayer1Dice,
+      player2Dice: nextPlayer2Dice,
+      diceRolled: true,
+      bonusHistory: nextBonusHistory,
+      completedTracks: nextCompletedTracks,
+    });
+  }, [selectedSpace, canClaimSpace, isMultiplayer, sessionId, sessionLocalPlayerId, getAnimationPosition, currentPlayerDice, gameState, player1Dice, player2Dice, bonusHistory, completedTracks, persistGameState, spawnPointAnimation, spawnFireworks]);
 
   // Cancel selection
   const handleCancel = useCallback(() => {
@@ -1251,43 +1290,41 @@ export function PrimeFactorGame() {
       }));
       return;
     }
-    
-    setGameState((prev) => {
-      const nextPlayer = (prev.currentPlayer + 1) % prev.players.length;
-      
-      const currentPlayerHasMoves = checkPlayerHasMoves(prev.currentPlayer, prev.board);
-      const nextPlayerHasMoves = checkPlayerHasMoves(nextPlayer, prev.board);
-      
-      if (!currentPlayerHasMoves && !nextPlayerHasMoves) {
-        return {
-          ...prev,
-          phase: "roundEnd",
-          selectedDice: [],
-          roundNumber: prev.roundNumber + 1,
-          message: `Round ${prev.roundNumber} complete! Both players are out of moves. Click "New Round" to continue.`,
-        };
-      }
-      
-      if (!nextPlayerHasMoves) {
-        return {
-          ...prev,
-          phase: "roundEnd",
-          selectedDice: [],
-          roundNumber: prev.roundNumber + 1,
-          message: `Round ${prev.roundNumber} complete! Both players are out of moves. Click "New Round" to continue.`,
-        };
-      }
-      
-      const newState = {
-        ...prev,
-        currentPlayer: nextPlayer,
-        selectedDice: [],
-        message: `${prev.players[nextPlayer].name}'s turn! Select dice to claim a space.`,
-      };
-      return newState;
+
+    const nextPlayer = (gameState.currentPlayer + 1) % gameState.players.length;
+    const currentPlayerHasMoves = checkPlayerHasMoves(gameState.currentPlayer, gameState.board);
+    const nextPlayerHasMoves = checkPlayerHasMoves(nextPlayer, gameState.board);
+
+    const nextGameState =
+      !currentPlayerHasMoves && !nextPlayerHasMoves
+        ? {
+            ...gameState,
+            phase: "roundEnd" as const,
+            selectedDice: [],
+            roundNumber: gameState.roundNumber + 1,
+            message: `Round ${gameState.roundNumber} complete! Both players are out of moves. Click "New Round" to continue.`,
+          }
+        : !nextPlayerHasMoves
+          ? {
+              ...gameState,
+              phase: "roundEnd" as const,
+              selectedDice: [],
+              roundNumber: gameState.roundNumber + 1,
+              message: `Round ${gameState.roundNumber} complete! Both players are out of moves. Click "New Round" to continue.`,
+            }
+          : {
+              ...gameState,
+              currentPlayer: nextPlayer,
+              selectedDice: [],
+              message: `${gameState.players[nextPlayer].name}'s turn! Select dice to claim a space.`,
+            };
+
+    setGameState(nextGameState);
+    void persistGameState('end-turn', {
+      gameState: nextGameState,
+      diceRolled,
     });
-    persistGameState('end-turn');
-  }, [hasAnyValidMove, checkPlayerHasMoves, isMultiplayer, sessionId, sessionLocalPlayerId, persistGameState]);
+  }, [checkPlayerHasMoves, diceRolled, gameState, hasAnyValidMove, isMultiplayer, sessionId, sessionLocalPlayerId, persistGameState]);
 
   // Timer expired
   const handleTimeUp = useCallback(() => {
@@ -1459,23 +1496,29 @@ export function PrimeFactorGame() {
   const handleNewRound = useCallback(() => {
     const dice1 = rollDice().map((d, i) => ({ ...d, id: `p1-r${gameState.roundNumber}-${i}` }));
     const dice2 = rollDice().map((d, i) => ({ ...d, id: `p2-r${gameState.roundNumber}-${i}` }));
+    const nextPlayer1Dice = sortDice(dice1);
+    const nextPlayer2Dice = sortDice(dice2);
     
-    setPlayer1Dice(sortDice(dice1));
-    setPlayer2Dice(sortDice(dice2));
-    
-    setGameState((prev) => {
-      // Alternate who goes first: round 1 = player 0, round 2 = player 1, etc.
-      const startingPlayer = (prev.roundNumber - 1) % 2;
-      return {
-        ...prev,
-        phase: "playing",
-        currentPlayer: startingPlayer,
-        selectedDice: [],
-        message: `Round ${prev.roundNumber} started! ${prev.players[startingPlayer].name} goes first.`,
-      };
+    setPlayer1Dice(nextPlayer1Dice);
+    setPlayer2Dice(nextPlayer2Dice);
+
+    const startingPlayer = (gameState.roundNumber - 1) % 2;
+    const nextGameState = {
+      ...gameState,
+      phase: "playing" as const,
+      currentPlayer: startingPlayer,
+      selectedDice: [],
+      message: `Round ${gameState.roundNumber} started! ${gameState.players[startingPlayer].name} goes first.`,
+    };
+
+    setGameState(nextGameState);
+    void persistGameState('new-round', {
+      gameState: nextGameState,
+      player1Dice: nextPlayer1Dice,
+      player2Dice: nextPlayer2Dice,
+      diceRolled: true,
     });
-    persistGameState('new-round');
-  }, [gameState.roundNumber]);
+  }, [gameState, persistGameState]);
 
   // Reorder dice
   const handleReorderPlayer1Dice = useCallback((newOrder: Die[]) => {
