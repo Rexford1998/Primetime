@@ -45,7 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles } from "lucide-react";
-import { createGameLobby, joinGameLobby, cancelGameLobby, getGameSession, subscribeToSession, subscribeToGameState, updateGameState, generatePlayerId, sendHeartbeat, validateTurn, updateCurrentTurn } from "@/lib/supabase-multiplayer";
+import { createGameLobby, joinGameLobby, cancelGameLobby, getGameSession, getGameSessionById, getGameStates, subscribeToSession, subscribeToGameState, updateGameState, generatePlayerId, sendHeartbeat, validateTurn, updateCurrentTurn } from "@/lib/supabase-multiplayer";
 import { AuthDialog } from "./auth-dialog";
 import { ActiveGamesDialog } from "./active-games-dialog";
 import { usePlayerProfile } from "@/hooks/use-player-profile";
@@ -124,6 +124,7 @@ export function PrimeFactorGame() {
   // Bot settings
   const [botEnabled, setBotEnabled] = useState(false);
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>("medium");
+  const pendingPersistActionRef = useRef<string | null>(null);
 
   useEffect(() => {
     authFlowLog("state snapshot", {
@@ -159,6 +160,7 @@ export function PrimeFactorGame() {
   useEffect(() => {
     if (authUser?.id) {
       setUserId(authUser.id);
+      setPlayerId(authUser.id);
     }
   }, [authUser]);
 
@@ -431,24 +433,104 @@ export function PrimeFactorGame() {
   }, [selectedSpace, gameState.selectedDice, currentPlayerDice]);
 
   // Persist game state to database for multiplayer
-  const persistGameState = useCallback(async (actionType: string) => {
+  const persistGameState = useCallback((actionType: string) => {
     if (!isMultiplayer || !sessionId || !playerId) return;
-    
-    try {
-      await updateGameState(sessionId, playerId, {
-        board: gameState.board,
-        players: gameState.players,
-        currentPlayer: gameState.currentPlayer,
-        phase: gameState.phase,
-        roundNumber: gameState.roundNumber,
-        selectedDice: gameState.selectedDice,
-        actionType,
-        timestamp: Date.now(),
-      }, gameState.roundNumber);
-    } catch (error) {
-      console.error('Error persisting game state:', error);
+    pendingPersistActionRef.current = actionType;
+  }, [isMultiplayer, sessionId, playerId]);
+
+  useEffect(() => {
+    const actionType = pendingPersistActionRef.current;
+    if (!actionType || !isMultiplayer || !sessionId || !playerId) return;
+
+    pendingPersistActionRef.current = null;
+
+    const saveState = async () => {
+      try {
+        await updateGameState(sessionId, playerId, {
+          board: gameState.board,
+          players: gameState.players,
+          currentPlayer: gameState.currentPlayer,
+          phase: gameState.phase,
+          roundNumber: gameState.roundNumber,
+          selectedDice: gameState.selectedDice,
+          message: gameState.message,
+          targetScore: gameState.targetScore,
+          player1Dice,
+          player2Dice,
+          diceRolled,
+          bonusHistory,
+          completedTracks,
+          actionType,
+          timestamp: Date.now(),
+        }, gameState.roundNumber);
+      } catch (error) {
+        console.error('Error persisting game state:', error);
+      }
+    };
+
+    void saveState();
+  }, [
+    isMultiplayer,
+    sessionId,
+    playerId,
+    gameState,
+    player1Dice,
+    player2Dice,
+    diceRolled,
+    bonusHistory,
+    completedTracks,
+  ]);
+
+  const applySavedGameState = useCallback((savedState: Record<string, any>) => {
+    setGameState((prev) => ({
+      ...prev,
+      board: Array.isArray(savedState.board) ? savedState.board : prev.board,
+      players: Array.isArray(savedState.players) ? savedState.players : prev.players,
+      currentPlayer:
+        typeof savedState.currentPlayer === "number" ? savedState.currentPlayer : prev.currentPlayer,
+      phase: savedState.phase || prev.phase,
+      roundNumber:
+        typeof savedState.roundNumber === "number" ? savedState.roundNumber : prev.roundNumber,
+      selectedDice: Array.isArray(savedState.selectedDice) ? savedState.selectedDice : [],
+      message: typeof savedState.message === "string" ? savedState.message : prev.message,
+      targetScore:
+        typeof savedState.targetScore === "number" ? savedState.targetScore : prev.targetScore,
+    }));
+
+    setPlayer1Dice(Array.isArray(savedState.player1Dice) ? savedState.player1Dice : []);
+    setPlayer2Dice(Array.isArray(savedState.player2Dice) ? savedState.player2Dice : []);
+    setDiceRolled(
+      typeof savedState.diceRolled === "boolean"
+        ? savedState.diceRolled
+        : !!(
+            (Array.isArray(savedState.player1Dice) && savedState.player1Dice.length > 0) ||
+            (Array.isArray(savedState.player2Dice) && savedState.player2Dice.length > 0)
+          )
+    );
+    setBonusHistory(Array.isArray(savedState.bonusHistory) ? savedState.bonusHistory : []);
+    setCompletedTracks(Array.isArray(savedState.completedTracks) ? savedState.completedTracks : []);
+    setSelectedSpace(null);
+  }, []);
+
+  const loadLatestSavedGameState = useCallback(async (activeSessionId: string) => {
+    const states = await getGameStates(activeSessionId);
+    if (!states.length) {
+      return false;
     }
-  }, [isMultiplayer, sessionId, playerId, gameState, updateGameState]);
+
+    const latestState = [...states].sort((a, b) => {
+      const aTime = Number(a.game_data?.timestamp ?? 0) || new Date(a.updated_at).getTime();
+      const bTime = Number(b.game_data?.timestamp ?? 0) || new Date(b.updated_at).getTime();
+      return bTime - aTime;
+    })[0];
+
+    if (!latestState?.game_data) {
+      return false;
+    }
+
+    applySavedGameState(latestState.game_data);
+    return true;
+  }, [applySavedGameState]);
 
   // Start game with target score
   const handleStartGame = useCallback((targetScore: number, enableBot: boolean, difficulty: BotDifficulty) => {
@@ -489,6 +571,33 @@ export function PrimeFactorGame() {
       ],
     }));
   }, [playerNames]);
+
+  useEffect(() => {
+    if (!isMultiplayer || !sessionId || waitingForOpponent) return;
+
+    let cancelled = false;
+
+    void loadLatestSavedGameState(sessionId);
+
+    const channel = subscribeToGameState(sessionId, (states) => {
+      if (cancelled || !states.length) return;
+
+      const latestState = [...states].sort((a, b) => {
+        const aTime = Number(a.game_data?.timestamp ?? 0) || new Date(a.updated_at).getTime();
+        const bTime = Number(b.game_data?.timestamp ?? 0) || new Date(b.updated_at).getTime();
+        return bTime - aTime;
+      })[0];
+
+      if (latestState?.game_data) {
+        applySavedGameState(latestState.game_data);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      channel.unsubscribe();
+    };
+  }, [applySavedGameState, isMultiplayer, loadLatestSavedGameState, sessionId, waitingForOpponent]);
 
   // Set current turn when game starts in multiplayer
   useEffect(() => {
@@ -624,13 +733,26 @@ export function PrimeFactorGame() {
   // Handle resuming a game from active games list
   const handleResumeGame = useCallback(async (resumeSessionId: string) => {
     try {
-      const session = await getGameSession(resumeSessionId);
+      const session = await getGameSessionById(resumeSessionId);
       if (session) {
+        const activePlayerId = userId || playerId;
+        const isCurrentUserPlayerOne = activePlayerId === session.player_1_id;
+        const resolvedOpponentId = isCurrentUserPlayerOne
+          ? session.player_2_id
+          : session.player_1_id;
+        const resolvedOpponentName = isCurrentUserPlayerOne
+          ? session.player_2_name || "Opponent"
+          : session.player_1_name || "Opponent";
+
         setSessionCode(session.session_code);
         setSessionId(session.id);
+        setSelectedGameType(session.game_type);
         setIsMultiplayer(true);
         setMultiplayerMode("join");
-        setOpponentName(session.player_2_name || "Opponent");
+        setWaitingForOpponent(false);
+        setOpponentHasJoined(!!session.player_2_id);
+        setOpponentPlayerId(resolvedOpponentId);
+        setOpponentName(resolvedOpponentName);
         setPlayerNames([
           session.player_1_name || "Player 1",
           session.player_2_name || "Player 2",
@@ -638,12 +760,29 @@ export function PrimeFactorGame() {
         setShowActiveGames(false);
         setShowSetup(false);
         setShowModeSelect(false);
-        // Resume game, don't show setup
+        setShowLobby(false);
+        setShowGameSetup(false);
+
+        const restored = await loadLatestSavedGameState(session.id);
+        if (!restored) {
+          setGameState((prev) => ({
+            ...prev,
+            players: [
+              { ...prev.players[0], name: session.player_1_name || "Player 1" },
+              { ...prev.players[1], name: session.player_2_name || "Player 2" },
+            ],
+            phase: session.status === "active" ? "rolling" : prev.phase,
+            message:
+              session.status === "active"
+                ? "Live match restored. Roll the dice to continue."
+                : prev.message,
+          }));
+        }
       }
     } catch (error) {
       console.error("Error resuming game:", error);
     }
-  }, []);
+  }, [loadLatestSavedGameState, playerId, userId]);
 
   const handleCancelMultiplayer = useCallback(async () => {
     if (sessionCode) {

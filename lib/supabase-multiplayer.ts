@@ -104,6 +104,10 @@ async function fetchSessionById(id: string): Promise<GameSession | null> {
   }
 }
 
+export async function getGameSessionById(id: string): Promise<GameSession | null> {
+  return fetchSessionById(id);
+}
+
 export interface GamePlayer {
   id: string;
   player_id: string;
