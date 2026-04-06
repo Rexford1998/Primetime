@@ -1528,19 +1528,13 @@ export function PrimeFactorGame() {
     return Array.from(set);
   }, [validMoves, possibleMoveHighlights]);
 
-  const showPreGameSetupPage = showModeSelect || showLobby || showGameSetup;
+  const showPreGameSetupPage = showModeSelect || showGameSetup;
 
   if (showPreGameSetupPage) {
-    const setupTitle = showGameSetup
-      ? "Create a Multiplayer Lobby"
-      : showLobby
-        ? "Find a Multiplayer Match"
-        : "Set Up Your Game";
+    const setupTitle = showGameSetup ? "Create a Multiplayer Lobby" : "Set Up Your Game";
     const setupDescription = showGameSetup
       ? "Choose how this match should run before you open the lobby."
-      : showLobby
-        ? "Browse live rooms, switch game types, or spin up a new match."
-        : "Pick the way you want to play, then we’ll move you straight into the right experience.";
+"Pick the way you want to play, then we’ll move you straight into the right experience.";
 
     return (
       <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_35%),linear-gradient(180deg,#f8fbff_0%,#eef5ff_48%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.2),_transparent_30%),linear-gradient(180deg,#0f172a_0%,#111827_45%,#030712_100%)]">
@@ -1565,59 +1559,6 @@ export function PrimeFactorGame() {
                   hasActiveGames={hasResumableGames}
                   onViewActiveGames={() => setShowActiveGames(true)}
                 />
-              )}
-
-              {showLobby && (
-                <div className="space-y-6">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="gap-2 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
-                    onClick={() => {
-                      setShowLobby(false);
-                      setShowModeSelect(true);
-                    }}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to game modes
-                  </Button>
-
-                  <GameLobby
-                    gameType={selectedGameType}
-                    onSelectLobby={handleSelectLobby}
-                    onCreateNew={handleCreateNewLobby}
-                    isOpen={showLobby}
-                    onChangeGameType={(type) => setSelectedGameType(type)}
-                  />
-                </div>
-              )}
-
-              {showGameSetup && (
-                <div className="space-y-6">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="gap-2 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
-                    onClick={() => {
-                      setShowGameSetup(false);
-                      setShowLobby(true);
-                    }}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to lobby browser
-                  </Button>
-
-                  <GameSetupForm
-                    gameType={selectedGameType}
-                    defaultPlayerName={authUser?.playerName || playerNames[0]}
-                    onCreateLobby={handleGameSetupSubmit}
-                    onCancel={() => {
-                      setShowGameSetup(false);
-                      setShowLobby(true);
-                    }}
-                    isLoading={lobbyLoading}
-                  />
-                </div>
               )}
             </div>
 
