@@ -98,6 +98,74 @@ export function PrimeFactorGame() {
   const [player1Dice, setPlayer1Dice] = useState<Die[]>([]);
   const [player2Dice, setPlayer2Dice] = useState<Die[]>([]);
   const [diceRolled, setDiceRolled] = useState(false);
+
+  // Persist game state to database
+  const persistGameState = useCallback((action: string) => {
+    if (!isMultiplayer || !sessionId || !playerId) return;
+
+    // We only send the state that matters to the other player
+    const stateToSave = {
+      ...gameState,
+      selectedDice: [], // DON'T send selected dice, it's local UI state
+    };
+
+    // Using updateGameState from lib/supabase-multiplayer.ts
+    updateGameState(
+      sessionId,
+      playerId,
+      {
+        gameState: stateToSave,
+        player1Dice,
+        player2Dice,
+        diceRolled,
+        action,
+      },
+      gameState.roundNumber
+    ).catch(err => console.error("Error persisting state:", err));
+  }, [isMultiplayer, sessionId, playerId, gameState, player1Dice, player2Dice, diceRolled]);
+
+  // Subscribe to game state updates
+  useEffect(() => {
+    if (!isMultiplayer || !sessionId || !playerId) return;
+
+    let cancelled = false;
+
+    // Using subscribeToGameState from lib/supabase-multiplayer.ts
+    const channel = subscribeToGameState(sessionId, (states) => {
+      if (cancelled || !states || states.length === 0) return;
+
+      // Find the most recent state from the opponent
+      const opponentStates = states
+        .filter(s => s.player_id !== playerId)
+        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+      if (opponentStates.length > 0) {
+        const latestOpponentState = opponentStates[0];
+        const data = latestOpponentState.game_data as any;
+
+        if (data && data.gameState) {
+          // Update our local state with opponent's data
+          setGameState(prev => {
+            // Keep our local selectedDice and selectedSpace
+            return {
+              ...data.gameState,
+              selectedDice: prev.selectedDice // PRESERVE LOCAL UI STATE
+            };
+          });
+
+          if (data.player1Dice) setPlayer1Dice(data.player1Dice);
+          if (data.player2Dice) setPlayer2Dice(data.player2Dice);
+          if (data.diceRolled !== undefined) setDiceRolled(data.diceRolled);
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      if (channel) channel.unsubscribe();
+    };
+  }, [isMultiplayer, sessionId, playerId]);
+
   
   // Animation states
   const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
