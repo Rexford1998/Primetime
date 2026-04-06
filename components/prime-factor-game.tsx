@@ -1589,18 +1589,7 @@ export function PrimeFactorGame() {
         <div className="grid lg:grid-cols-[1fr_320px] gap-4">
           {/* Board + Both Dice Trays */}
           <div className="space-y-4">
-            <div>
-              <GameBoard
-                board={gameState.board}
-                tracks={completedTracks}
-                boardRef={trackBoardRef}
-                onSpaceClick={handleSpaceClick}
-                highlightedSpaces={selectedSpace ? [selectedSpace.number] : []}
-                validMoves={allHighlightedMoves}
-              />
-            </div>
-            
-            {/* Both Players' Dice Side by Side (below board) */}
+            {/* Both Players' Dice Side by Side (above board) */}
             {diceRolled && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Player 1 Dice */}
@@ -1633,6 +1622,17 @@ export function PrimeFactorGame() {
                 </div>
               </div>
             )}
+
+            <div>
+              <GameBoard
+                board={gameState.board}
+                tracks={completedTracks}
+                boardRef={trackBoardRef}
+                onSpaceClick={handleSpaceClick}
+                highlightedSpaces={selectedSpace ? [selectedSpace.number] : []}
+                validMoves={allHighlightedMoves}
+              />
+            </div>
           </div>
 
           {/* Sidebar */}
