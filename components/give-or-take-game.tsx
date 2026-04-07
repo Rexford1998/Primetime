@@ -1042,43 +1042,6 @@ export function GiveOrTakeGame() {
     </div>
   );
 }
-              setIsMultiplayer(false);
-              setWaitingForOpponent(false);
-              setSessionCode(null);
-              setSessionId(null);
-              setSessionPlayer1Id(null);
-              setSessionPlayer2Id(null);
-              setSessionLocalPlayerId(null);
-              setShowModeSelect(true);
-            }}
-            onOpponentJoined={() => {
-              setWaitingForOpponent(false);
-              setOpponentHasJoined(false);
-              setShowSetup(true);
-              setShowModeSelect(false);
-            }}
-            onJoinLobby={(lobbyId) => {
-              // Handle joining a different lobby
-              console.log("[v0] Joining lobby:", lobbyId);
-            }}
-            onCreateNew={() => {
-              if (sessionCode) {
-                void cancelGameLobby(sessionCode);
-              }
-              setWaitingForOpponent(false);
-              setOpponentHasJoined(false);
-              setSessionCode(null);
-              setSessionId(null);
-              setSessionPlayer1Id(null);
-              setSessionPlayer2Id(null);
-              setSessionLocalPlayerId(null);
-              setShowSetup(true);
-              setShowModeSelect(false);
-            }}
-            opponentHasJoined={opponentHasJoined}
-            isOpen
-          />
-        )}
         
         <Dialog open={showSetup} onOpenChange={setShowSetup}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
