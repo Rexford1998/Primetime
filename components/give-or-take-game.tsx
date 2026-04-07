@@ -94,6 +94,7 @@ interface SavedMatchData {
 const createEmptyPositions = (): PositionState => [[], []];
 
 const createInitialState = (
+  targetScore: number | undefined,
   playerNames: [string, string],
   playerColors: [string, string],
   timerSeconds: number | null = null
@@ -106,7 +107,7 @@ const createInitialState = (
   currentPlayer: 0,
   phase: "chooseDice",
   message: `${playerNames[0]}, choose your die size!`,
-  targetScore: DEFAULT_TARGET_SCORE,
+  targetScore: targetScore || DEFAULT_TARGET_SCORE,
   dieValue: null,
   diceSize: null,
   timerSeconds,
@@ -116,7 +117,7 @@ export function GiveOrTakeGame() {
   const selectedGameType: "give-or-take" = "give-or-take";
 
   const [gameState, setGameState] = useState<GotGameState>(
-    createInitialState(["Player 1", "Player 2"], DEFAULT_COLORS)
+    createInitialState(undefined, ["Player 1", "Player 2"], DEFAULT_COLORS)
   );
   const [showSetup, setShowSetup] = useState(false);
   const [showModeSelect, setShowModeSelect] = useState(true);
@@ -136,6 +137,7 @@ export function GiveOrTakeGame() {
   const [selectedDiceSize, setSelectedDiceSize] = useState<DiceSize | null>(null);
   const [botEnabled, setBotEnabled] = useState(false);
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>("medium");
+  const [multiplayerTargetScore, setMultiplayerTargetScore] = useState(37);
 
   const { user: authUser } = usePlayerProfile();
   const [userId, setUserId] = useState<string | null>(null);
@@ -655,7 +657,9 @@ export function GiveOrTakeGame() {
         return;
       }
 
-      const initialState = createInitialState(names, DEFAULT_COLORS, null);
+      const initialState = createInitialState(
+
+      isMultiplayer ? multiplayerTargetScore : undefined,names, DEFAULT_COLORS, null);
       const initialPositions = createEmptyPositions();
 
       setGameState(initialState);
@@ -731,6 +735,7 @@ export function GiveOrTakeGame() {
       if (session.player_2_id) {
         setOpponentHasJoined(true);
         setOpponentPlayerId(session.player_2_id);
+        setMultiplayerTargetScore(session.target_score || 37);
         setOpponentName(session.player_2_name || "Opponent");
       }
     };
@@ -801,6 +806,8 @@ export function GiveOrTakeGame() {
 
   const handleStartLocalOrBotGame = useCallback(() => {
     const initialState = createInitialState(
+
+      isMultiplayer ? multiplayerTargetScore : undefined,
       [setupPlayerNames[0], botEnabled ? "Bot" : setupPlayerNames[1]],
       setupPlayerColors,
       setupTimer
@@ -874,7 +881,7 @@ export function GiveOrTakeGame() {
   );
 
   const handleGameSetupSubmit = useCallback(
-    async (settings: { playerName: string }) => {
+    async (settings: { playerName: string, targetScore?: number, botDifficulty?: string }) => {
       setLobbyLoading(true);
 
       try {
@@ -882,7 +889,10 @@ export function GiveOrTakeGame() {
         const session = await createGameLobby(
           selectedGameType,
           settings.playerName,
-          {},
+          {
+            targetScore: settings.targetScore,
+            botDifficulty: settings.botDifficulty,
+          },
           playerIdToUse || undefined
         );
 
@@ -895,6 +905,7 @@ export function GiveOrTakeGame() {
         setSessionPlayer2Id(session.player_2_id);
         setSessionLocalPlayerId(session.player_1_id);
         setOpponentPlayerId(session.player_2_id);
+        setMultiplayerTargetScore(session.target_score || 37);
         setSetupPlayerNames([settings.playerName || "Player 1", "Player 2"]);
         setWaitingForOpponent(true);
         setOpponentHasJoined(false);
@@ -932,6 +943,8 @@ export function GiveOrTakeGame() {
         setSessionPlayer1Id(session.player_1_id);
         setSessionPlayer2Id(session.player_2_id);
         setSessionLocalPlayerId(session.player_2_id || null);
+        setMultiplayerTargetScore(session.target_score || 37);
+
         setOpponentPlayerId(session.player_1_id);
         setOpponentName(session.player_1_name || "Opponent");
         setShowLobby(false);
@@ -971,6 +984,8 @@ export function GiveOrTakeGame() {
 
         const activePlayerId = userId || playerId;
         const isPlayerOne = activePlayerId === session.player_1_id;
+
+        setMultiplayerTargetScore(session.target_score || 37);
         const resolvedLocalPlayerId = isPlayerOne
           ? session.player_1_id
           : activePlayerId === session.player_2_id
@@ -1053,7 +1068,10 @@ export function GiveOrTakeGame() {
       localPlayerId === session.player_1_id ? session.player_2_id : session.player_1_id
     );
 
-    await enterMultiplayerMatch(session, localPlayerId);
+    setWaitingForOpponent(false);
+    setOpponentHasJoined(false);
+    setShowSetup(true);
+    setShowModeSelect(false);
   }, [enterMultiplayerMatch, sessionCode, sessionId, sessionLocalPlayerId]);
 
   const handleChooseDice = useCallback(
@@ -1693,6 +1711,9 @@ export function GiveOrTakeGame() {
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Give or Take</DialogTitle>
+            <div className="text-sm text-muted-foreground">
+              Target Score: {multiplayerTargetScore}
+            </div>
             <DialogDescription>
               A unique version of the multiplication game.
             </DialogDescription>
