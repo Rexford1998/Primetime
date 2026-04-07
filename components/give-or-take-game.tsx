@@ -34,6 +34,8 @@ import {
 import { GiveOrTakeTutorial } from "./give-or-take-tutorial";
 import { MultiplayerModeDialog } from "./multiplayer-mode-dialog";
 import { WaitingRoomDialog } from "./waiting-room-dialog";
+import { GameSetupForm } from "./game-setup-dialog";
+import { GameLobby } from "./game-lobby";
 import { 
   createGameLobby, 
   joinGameLobby, 
@@ -103,6 +105,8 @@ export function GiveOrTakeGame() {
   const [selectedDiceSize, setSelectedDiceSize] = useState<DiceSize | null>(null);
   const [botEnabled, setBotEnabled] = useState(false);
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>("medium");
+  const [showLobby, setShowLobby] = useState(false);
+  const [showGameSetup, setShowGameSetup] = useState(false);
 
   // Authentication and session recovery
   const { user: authUser, isAuthenticated } = usePlayerProfile();
@@ -125,6 +129,7 @@ export function GiveOrTakeGame() {
   const [opponentName, setOpponentName] = useState<string | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [heartbeatInterval, setHeartbeatInterval] = useState<NodeJS.Timeout | null>(null);
+  const [lobbyLoading, setLobbyLoading] = useState(false);
 
   // Exit confirmation dialog
   const [showExitConfirmDialog, setShowExitConfirmDialog] = useState(false);
@@ -591,6 +596,50 @@ export function GiveOrTakeGame() {
     }
   }, [authUser?.id]);
 
+  const handleGameSetupSubmit = useCallback(
+    async (settings: {
+      playerName: string;
+      targetScore?: number;
+      botDifficulty?: string;
+    }) => {
+      setLobbyLoading(true);
+      try {
+        // Use the authenticated user ID if available, otherwise let createGameLobby generate one
+        const playerIdToUse = authUser?.id || userId;
+        
+        const session = await createGameLobby(
+          "give-or-take",
+          settings.playerName,
+          {
+            targetScore: settings.targetScore,
+            botDifficulty: settings.botDifficulty,
+          },
+          playerIdToUse
+        );
+
+        if (session) {
+          setSessionId(session.id);
+          setSessionCode(session.session_code);
+          setSessionPlayer1Id(session.player_1_id);
+          setSessionPlayer2Id(session.player_2_id);
+          setSessionLocalPlayerId(session.player_1_id);
+          setPlayerId(session.player_1_id);
+          setIsMultiplayer(true);
+          setMultiplayerMode("create");
+          setShowGameSetup(false);
+          setShowLobby(false);
+          setWaitingForOpponent(true);
+          setSetupPlayerNames([settings.playerName, "Waiting for opponent..."]);
+        }
+      } catch (error) {
+        console.error("Error creating game lobby:", error);
+      } finally {
+        setLobbyLoading(false);
+      }
+    },
+    [authUser?.id, userId]
+  );
+
   // Bot auto-play effect
   useEffect(() => {
     if (!botEnabled || gameState.currentPlayer !== 1 || gameState.phase === "gameOver") return;
@@ -841,6 +890,70 @@ export function GiveOrTakeGame() {
           onModeSelect={handleModeSelect}
           gameName="Give or Take"
         />
+
+        {/* Lobby - Browse Games */}
+        {showLobby && (
+          <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8">
+            <div className="rounded-[28px] border border-slate-200/70 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(37,99,235,0.35)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+              <div className="space-y-4">
+                <button
+                  onClick={() => {
+                    setShowLobby(false);
+                    setShowModeSelect(true);
+                  }}
+                  className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-2"
+                >
+                  ← Back to modes
+                </button>
+                <GameLobby
+                  gameType="give-or-take"
+                  onSelectLobby={(lobbyId) => {
+                    // TODO: Handle joining a lobby
+                    console.log("[v0] Joining lobby:", lobbyId);
+                  }}
+                  onCreateNew={() => {
+                    setShowGameSetup(true);
+                    setShowLobby(false);
+                  }}
+                  isOpen={showLobby}
+                  onChangeGameType={() => {
+                    // Give or Take is fixed for this component
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Game Setup Form */}
+        {showGameSetup && (
+          <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8">
+            <div className="rounded-[28px] border border-slate-200/70 bg-white/90 p-6 shadow-[0_24px_80px_-28px_rgba(37,99,235,0.35)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+              <div className="space-y-4">
+                <button
+                  onClick={() => {
+                    setShowGameSetup(false);
+                    setShowLobby(true);
+                  }}
+                  className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-2"
+                >
+                  ← Back to lobby
+                </button>
+                <GameSetupForm
+                  gameType="give-or-take"
+                  defaultPlayerName={setupPlayerNames[0] || ""}
+                  onCreateLobby={handleGameSetupSubmit}
+                  onCancel={() => {
+                    setShowGameSetup(false);
+                    setShowLobby(true);
+                  }}
+                  isLoading={lobbyLoading}
+                  isMultiplayer={true}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Waiting Room */}
         {isMultiplayer && waitingForOpponent && (
