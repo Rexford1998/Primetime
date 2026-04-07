@@ -171,6 +171,7 @@ export function usePlayerProfile() {
         try {
           const currentUser = await getCurrentUserFromSession(session.user);
           debug('auth state change:getCurrentUserFromSession result', currentUser);
+
           if (authChangeSequenceRef.current !== sequenceId) {
             debug('auth state change:discarding stale sync result', {
               sequenceId,
@@ -196,12 +197,16 @@ export function usePlayerProfile() {
           setUser(optimisticUser);
           setError('Failed to fully sync auth state');
         } finally {
+          // Always ensure loading is false when sequence is done
           if (authChangeSequenceRef.current === sequenceId) {
             debug('auth state change:complete -> loading false', {
               event,
               nextKnownUserId: session.user.id,
               sequenceId,
             });
+            setLoading(false);
+          } else {
+            // Also turn off loading if the sequence got stale (prevent infinite loading)
             setLoading(false);
           }
         }

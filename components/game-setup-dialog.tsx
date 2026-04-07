@@ -66,16 +66,11 @@ export function GameSetupForm({
   const handleCreate = () => {
     if (!playerName.trim()) return;
 
-    const settings =
-      gameType === "multiplication"
-        ? {
-            playerName,
-            targetScore: parseInt(targetScore),
-          }
-        : {
-            playerName,
-            botDifficulty,
-          };
+    const settings = {
+      playerName,
+      targetScore: parseInt(targetScore),
+      ...(gameType === "give-or-take" && !isMultiplayer ? { botDifficulty } : {})
+    };
 
     onCreateLobby(settings);
   };
@@ -107,25 +102,23 @@ export function GameSetupForm({
           />
         </div>
 
-        {gameType === "multiplication" && (
-          <div>
-            <Label htmlFor="target-score" className="text-sm font-medium">
-              Target Score
-            </Label>
-            <Select value={targetScore} onValueChange={setTargetScore}>
-              <SelectTrigger id="target-score" className="mt-2">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="25">25 Points</SelectItem>
-                <SelectItem value="31">31 Points</SelectItem>
-                <SelectItem value="37">37 Points (Standard)</SelectItem>
-                <SelectItem value="43">43 Points</SelectItem>
-                <SelectItem value="50">50 Points</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div>
+          <Label htmlFor="target-score" className="text-sm font-medium">
+            Target Score
+          </Label>
+          <Select value={targetScore} onValueChange={setTargetScore}>
+            <SelectTrigger id="target-score" className="mt-2">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="25">25 Points</SelectItem>
+              <SelectItem value="31">31 Points</SelectItem>
+              <SelectItem value="37">37 Points (Standard)</SelectItem>
+              <SelectItem value="43">43 Points</SelectItem>
+              <SelectItem value="50">50 Points</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         {gameType === "give-or-take" && !isMultiplayer && (
           <div>
