@@ -19,7 +19,7 @@ import {
   COLOR_PALETTE,
 } from "@/lib/give-or-take-utils";
 import { getBotDiceSizeForGiveOrTake, getBotPlacementForGiveOrTake, type BotDifficulty } from "@/lib/bot-utils";
-import { MultiplicationGameTutorial } from "./multiplication-tutorial";
+import { GiveOrTakeTutorial } from "./give-or-take-tutorial";
 import { MultiplayerModeSelector, type ModeOption } from "./multiplayer-mode-dialog";
 import { WaitingRoomDialog } from "./waiting-room-dialog";
 import { GameLobby } from "./game-lobby";
@@ -88,7 +88,7 @@ export function GiveOrTakeGame() {
   const [playerNames, setPlayerNames] = useState<[string, string]>(["Player 1", "Player 2"]);
   const [showAuth, setShowAuth] = useState(false);
   const [showLobby, setShowLobby] = useState(false);
-  const [selectedGameType] = useState<"multiplication" | "give-or-take">("give-or-take");
+  const selectedGameType: "give-or-take" = "give-or-take";
   const [showGameSetup, setShowGameSetup] = useState(false);
   const [lobbyLoading, setLobbyLoading] = useState(false);
   const [heartbeatInterval, setHeartbeatInterval] = useState<NodeJS.Timeout | null>(null);
@@ -182,7 +182,11 @@ export function GiveOrTakeGame() {
 
     const checkActiveGames = async () => {
       try {
-        const response = await fetch(`/api/active-games?userId=${userId}`);
+        const params = new URLSearchParams({
+          userId,
+          gameType: selectedGameType,
+        });
+        const response = await fetch(`/api/active-games?${params.toString()}`);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
@@ -204,7 +208,7 @@ export function GiveOrTakeGame() {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [selectedGameType, userId]);
 
   useEffect(() => {
     if (!authUser?.playerName) return;
@@ -799,7 +803,6 @@ export function GiveOrTakeGame() {
 
     // Show lobby to find/create multiplayer game
     if (mode === "create" || mode === "join") {
-      setSelectedGameType("multiplication");
       setShowLobby(true);
       setMultiplayerMode("lobby");
       setShowModeSelect(false);
@@ -856,6 +859,11 @@ export function GiveOrTakeGame() {
     try {
       const session = await getGameSessionById(resumeSessionId);
       if (session) {
+        if (session.game_type !== selectedGameType) {
+          window.location.href = "/";
+          return;
+        }
+
         gameStateVersionRef.current = -1;
         const activePlayerId = userId || playerId;
         const isCurrentUserPlayerOne = activePlayerId === session.player_1_id;
@@ -877,7 +885,6 @@ export function GiveOrTakeGame() {
         setSessionPlayer2Id(session.player_2_id);
         setSessionLocalPlayerId(resolvedLocalPlayerId);
         setMultiplayerTargetScore(session.target_score || 37);
-        setSelectedGameType(session.game_type);
         setIsMultiplayer(true);
         setMultiplayerMode("join");
         setWaitingForOpponent(false);
@@ -1550,7 +1557,7 @@ export function GiveOrTakeGame() {
               {showModeSelect && (
                 <MultiplayerModeSelector
                   onModeSelect={handleModeSelect}
-                  gameName="Multiplication Game"
+                  gameName="Give or Take Game"
                   hasActiveGames={hasResumableGames}
                   onViewActiveGames={() => setShowActiveGames(true)}
                 />
@@ -1578,7 +1585,9 @@ export function GiveOrTakeGame() {
                     }}
                     isOpen={showLobby}
                     onChangeGameType={(gameType) => {
-                      setSelectedGameType(gameType);
+                      if (gameType === "multiplication") {
+                        window.location.href = "/";
+                      }
                     }}
                   />
                 </div>
@@ -1627,16 +1636,12 @@ export function GiveOrTakeGame() {
           open={showActiveGames}
           onOpenChange={setShowActiveGames}
           userId={userId}
+          gameType={selectedGameType}
           onResumeGame={handleResumeGame}
         />
         </div>
       </div>
     );
-  }
-
-  // Render Give or Take game if that's the selected type
-  if (selectedGameType === "give-or-take") {
-    return <GiveOrTakeGame />;
   }
 
   return (
@@ -1646,10 +1651,10 @@ export function GiveOrTakeGame() {
         <header className="flex items-center justify-between gap-4">
           <button
             type="button"
-            onClick={() => handleSwitchGame("/give-or-take")}
+            onClick={() => handleSwitchGame("/")}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
           >
-            Try Give or Take Game
+            Try Multiplication Game
           </button>
           <div className="text-right shrink-0">
             <p className="text-xs sm:text-sm text-muted-foreground">
@@ -1805,7 +1810,7 @@ export function GiveOrTakeGame() {
 
   {/* Dialogs */}
   <RulesDialog open={showRules} onOpenChange={setShowRules} />
-  <MultiplicationGameTutorial open={showTutorial} onOpenChange={setShowTutorial} />
+  <GiveOrTakeTutorial open={showTutorial} onOpenChange={setShowTutorial} />
   <AuthDialog
     open={showAuth}
     onOpenChange={setShowAuth}
@@ -1823,6 +1828,7 @@ export function GiveOrTakeGame() {
     open={showActiveGames}
     onOpenChange={setShowActiveGames}
     userId={userId}
+    gameType={selectedGameType}
     onResumeGame={handleResumeGame}
   />
 
