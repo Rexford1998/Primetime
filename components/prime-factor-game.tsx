@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { GameBoard } from "./game-board";
-import { GiveOrTakeGame } from "./give-or-take-game";
 import { DiceTray } from "./dice-tray";
 import { Scoreboard } from "./scoreboard";
 import { GameControls } from "./game-controls";
@@ -1641,11 +1640,6 @@ export function PrimeFactorGame() {
         </div>
       </div>
     );
-  }
-
-  // Render Give or Take game if that's the selected type
-  if (selectedGameType === "give-or-take") {
-    return <GiveOrTakeGame />;
   }
 
   return (
